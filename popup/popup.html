@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spider Web & Dust</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <!-- Background Web Animation -->
+  <canvas id="bg-canvas"></canvas>
+
+  <div class="popup-container">
+
+    <!-- Header -->
+    <header class="popup-header">
+      <div class="header-content">
+        <div class="logo-group">
+          <div class="logo-icon">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="14" cy="14" r="13" stroke="url(#webGrad)" stroke-width="1.5" stroke-dasharray="3 2"/>
+              <circle cx="14" cy="14" r="8" stroke="url(#webGrad)" stroke-width="1" stroke-dasharray="2 2"/>
+              <circle cx="14" cy="14" r="3" stroke="url(#webGrad)" stroke-width="1"/>
+              <line x1="14" y1="1" x2="14" y2="27" stroke="url(#webGrad)" stroke-width="0.8"/>
+              <line x1="1" y1="14" x2="27" y2="14" stroke="url(#webGrad)" stroke-width="0.8"/>
+              <line x1="4" y1="4" x2="24" y2="24" stroke="url(#webGrad)" stroke-width="0.8"/>
+              <line x1="24" y1="4" x2="4" y2="24" stroke="url(#webGrad)" stroke-width="0.8"/>
+              <circle cx="14" cy="14" r="2" fill="url(#webGrad)"/>
+              <defs>
+                <linearGradient id="webGrad" x1="0" y1="0" x2="28" y2="28">
+                  <stop offset="0%" stop-color="#a78bfa"/>
+                  <stop offset="100%" stop-color="#818cf8"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div>
+            <h1>Spider Web & Dust</h1>
+            <p class="subtitle">Neglected sites get dusty</p>
+          </div>
+        </div>
+        <label class="toggle-switch" id="global-toggle-label">
+          <input type="checkbox" id="global-toggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </header>
+
+    <!-- Current Site Status -->
+    <section class="site-status" id="site-status">
+      <div class="status-icon" id="status-icon">🌐</div>
+      <div class="status-info">
+        <div class="status-domain" id="status-domain">Loading...</div>
+        <div class="status-detail" id="status-detail">Checking site status...</div>
+      </div>
+      <div class="status-badge" id="status-badge">—</div>
+    </section>
+
+    <!-- Quick Controls -->
+    <section class="controls-section">
+
+      <!-- Inactivity Threshold -->
+      <div class="control-row">
+        <div class="control-label">
+          <span class="control-icon">📅</span>
+          <span>Days before webs</span>
+        </div>
+        <div class="control-input">
+          <input type="range" id="days-slider" min="1" max="90" value="7" class="slider">
+          <span class="slider-value" id="days-value">7d</span>
+        </div>
+      </div>
+
+      <!-- Web Density -->
+      <div class="control-row">
+        <div class="control-label">
+          <span class="control-icon">🕸️</span>
+          <span>Web density</span>
+        </div>
+        <div class="density-options" id="web-density">
+          <button class="density-btn" data-value="low" title="Low">
+            <svg width="16" height="16" viewBox="0 0 16 16"><line x1="0" y1="0" x2="16" y2="16" stroke="currentColor" stroke-width="1"/></svg>
+          </button>
+          <button class="density-btn active" data-value="medium" title="Medium">
+            <svg width="16" height="16" viewBox="0 0 16 16"><line x1="0" y1="0" x2="16" y2="16" stroke="currentColor" stroke-width="1"/><line x1="0" y1="8" x2="16" y2="8" stroke="currentColor" stroke-width="0.7"/><line x1="8" y1="0" x2="8" y2="16" stroke="currentColor" stroke-width="0.7"/></svg>
+          </button>
+          <button class="density-btn" data-value="high" title="High">
+            <svg width="16" height="16" viewBox="0 0 16 16"><line x1="0" y1="0" x2="16" y2="16" stroke="currentColor" stroke-width="1"/><line x1="16" y1="0" x2="0" y2="16" stroke="currentColor" stroke-width="1"/><line x1="0" y1="8" x2="16" y2="8" stroke="currentColor" stroke-width="0.7"/><line x1="8" y1="0" x2="8" y2="16" stroke="currentColor" stroke-width="0.7"/></svg>
+          </button>
+          <button class="density-btn" data-value="extreme" title="Extreme">
+            <svg width="16" height="16" viewBox="0 0 16 16"><line x1="0" y1="0" x2="16" y2="16" stroke="currentColor" stroke-width="1"/><line x1="16" y1="0" x2="0" y2="16" stroke="currentColor" stroke-width="1"/><line x1="0" y1="8" x2="16" y2="8" stroke="currentColor" stroke-width="0.7"/><line x1="8" y1="0" x2="8" y2="16" stroke="currentColor" stroke-width="0.7"/><circle cx="8" cy="8" r="4" stroke="currentColor" stroke-width="0.7" fill="none"/><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="0.5" fill="none"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Dust Intensity -->
+      <div class="control-row">
+        <div class="control-label">
+          <span class="control-icon">💨</span>
+          <span>Dust intensity</span>
+        </div>
+        <div class="density-options" id="dust-intensity">
+          <button class="density-btn" data-value="low" title="Low">Light</button>
+          <button class="density-btn active" data-value="medium" title="Medium">Medium</button>
+          <button class="density-btn" data-value="high" title="High">Heavy</button>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="divider"></div>
+
+      <!-- Site Toggle -->
+      <div class="control-row">
+        <div class="control-label">
+          <span class="control-icon">🔒</span>
+          <span>Enable for this site</span>
+        </div>
+        <label class="toggle-switch small">
+          <input type="checkbox" id="site-toggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+    </section>
+
+    <!-- Action Buttons -->
+    <section class="actions-section">
+      <button class="action-btn primary" id="clean-now-btn">
+        <span class="btn-icon">✨</span>
+        <span>Clean Now</span>
+      </button>
+    </section>
+
+    <!-- Footer -->
+    <footer class="popup-footer">
+      <a href="#" id="open-options" class="footer-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+        Advanced Settings
+      </a>
+    </footer>
+
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

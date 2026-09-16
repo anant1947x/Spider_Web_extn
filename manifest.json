@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "Spider Web & Dust",
+  "version": "1.0.0",
+  "description": "Abandoned websites collect spider webs and dust — clean them with a satisfying duster animation!",
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "content/overlay.js",
+        "content/web-renderer.js",
+        "content/dust-system.js",
+        "content/sound-manager.js",
+        "content/duster-engine.js",
+        "content/content.js"
+      ],
+      "css": ["content/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon-16.png",
+      "48": "assets/icons/icon-48.png",
+      "128": "assets/icons/icon-128.png"
+    }
+  },
+  "options_page": "options/options.html",
+  "icons": {
+    "16": "assets/icons/icon-16.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/cursors/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spider Web & Dust — Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+
+  <div class="options-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
+            <circle cx="14" cy="14" r="13" stroke="url(#wg)" stroke-width="1.5" stroke-dasharray="3 2"/>
+            <circle cx="14" cy="14" r="8" stroke="url(#wg)" stroke-width="1" stroke-dasharray="2 2"/>
+            <circle cx="14" cy="14" r="3" stroke="url(#wg)" stroke-width="1"/>
+            <line x1="14" y1="1" x2="14" y2="27" stroke="url(#wg)" stroke-width="0.8"/>
+            <line x1="1" y1="14" x2="27" y2="14" stroke="url(#wg)" stroke-width="0.8"/>
+            <line x1="4" y1="4" x2="24" y2="24" stroke="url(#wg)" stroke-width="0.8"/>
+            <line x1="24" y1="4" x2="4" y2="24" stroke="url(#wg)" stroke-width="0.8"/>
+            <circle cx="14" cy="14" r="2" fill="url(#wg)"/>
+            <defs><linearGradient id="wg" x1="0" y1="0" x2="28" y2="28"><stop offset="0%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#818cf8"/></linearGradient></defs>
+          </svg>
+        </div>
+        <div>
+          <h2>Spider Web & Dust</h2>
+          <span class="version">v1.0.0</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#general" class="nav-item active" data-section="general">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          General
+        </a>
+        <a href="#visual" class="nav-item" data-section="visual">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M2 12h20"/><path d="M12 2a15 15 0 014 10 15 15 0 01-4 10 15 15 0 01-4-10 15 15 0 014-10z"/></svg>
+          Visual
+        </a>
+        <a href="#cleaning" class="nav-item" data-section="cleaning">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          Cleaning
+        </a>
+        <a href="#sites" class="nav-item" data-section="sites">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          Sites
+        </a>
+        <a href="#advanced" class="nav-item" data-section="advanced">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          Advanced
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- General Section -->
+      <section id="general" class="settings-section active">
+        <div class="section-header">
+          <h2>General Settings</h2>
+          <p>Control when and how the extension activates.</p>
+        </div>
+
+        <div class="settings-card">
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>Enable Extension</h3>
+              <p>Turn the extension on or off globally.</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="opt-global-enabled" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>Inactivity Threshold</h3>
+              <p>Days of inactivity before webs and dust appear on a site.</p>
+            </div>
+            <div class="setting-control">
+              <input type="range" id="opt-inactivity-days" min="1" max="90" value="7" class="slider">
+              <div class="slider-label-group">
+                <input type="number" id="opt-inactivity-days-num" min="1" max="90" value="7" class="number-input">
+                <span class="unit">days</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>Animation Speed</h3>
+              <p>Speed multiplier for all animations (webs swaying, dust drifting).</p>
+            </div>
+            <div class="setting-control">
+              <input type="range" id="opt-animation-speed" min="0.5" max="2" step="0.1" value="1" class="slider">
+              <span class="slider-value" id="opt-speed-value">1.0×</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Visual Section -->
+      <section id="visual" class="settings-section">
+        <div class="section-header">
+          <h2>Visual Customization</h2>
+          <p>Fine-tune the look and feel of webs and dust.</p>
+        </div>
+
+        <div class="settings-card">
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>Web Density</h3>
+              <p>How many spider webs appear on stale sites.</p>
+            </div>
+            <div class="option-group" id="opt-web-density">
+              <button class="option-btn" data-value="low">Low</button>
+              <button class="option-btn active" data-value="medium">Medium</button>
+              <button class="option-btn" data-value="high">High</button>
+              <button class="option-btn" data-value="extreme">Extreme</button>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>Dust Intensity</h3>
+              <p>Amount of floating dust particles.</p>
+            </div>
+            <div class="option-group" id="opt-dust-intensity">
+              <button class="option-btn" data-value="low">Low</button>
+              <button class="option-btn active" data-value="medium">Medium</button>
+              <button class="option-btn" data-value="high">High</button>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>Web Color</h3>
+              <p>Color of spider web strands.</p>
+            </div>
+            <div class="color-picker-group">
+              <input type="color" id="opt-web-color" value="#e0e0e0" class="color-input">
+              <span class="color-label" id="web-color-label">#e0e0e0</span>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>Dust Color</h3>
+              <p>Color of dust particles.</p>
+            </div>
+            <div class="color-picker-group">
+              <input type="color" id="opt-dust-color" value="#b8b8b8" class="color-input">
+              <span class="color-label" id="dust-color-label">#b8b8b8</span>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>Theme</h3>
+              <p>Color theme for extension UI.</p>
+            </div>
+            <div class="option-group" id="opt-theme">
+              <button class="option-btn" data-value="light">☀️ Light</button>
+              <button class="option-btn" data-value="dark">🌙 Dark</button>
+              <button class="option-btn active" data-value="auto">🔄 Auto</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Preview -->
+        <div class="preview-card">
+          <h3>Live Preview</h3>
+          <div class="preview-container">
+            <canvas id="preview-canvas"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Cleaning Section -->
+      <section id="cleaning" class="settings-section">
+        <div class="section-header">
+          <h2>Cleaning Settings</h2>
+          <p>Configure the cleaning interaction and duster style.</p>
+        </div>
+
+        <div class="settings-card">
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>Cleaning Mode</h3>
+              <p>How you clean the webs and dust.</p>
+            </div>
+            <div class="option-group" id="opt-cleaning-mode">
+              <button class="option-btn" data-value="manual">🖱️ Manual</button>
+              <button class="option-btn active" data-value="both">⚡ Both</button>
+              <button class="option-btn" data-value="auto">🔄 Auto</button>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>Duster Style</h3>
+              <p>Choose your cleaning tool appearance.</p>
+            </div>
+          </div>
+
+          <!-- Duster Style Cards -->
+          <div class="duster-grid" id="opt-duster-style">
+            <div class="duster-card active" data-value="classic">
+              <div class="duster-icon">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                  <line x1="20" y1="20" x2="35" y2="35" stroke="#8B7355" stroke-width="3.5" stroke-linecap="round"/>
+                  <ellipse cx="17" cy="17" rx="12" ry="8" fill="#DEB887" transform="rotate(-20 17 17)"/>
+                  <ellipse cx="17" cy="17" rx="8" ry="5.5" fill="#D2B48C" transform="rotate(-20 17 17)"/>
+                </svg>
+              </div>
+              <span class="duster-name">Classic</span>
+              <span class="duster-desc">Feather duster</span>
+            </div>
+            <div class="duster-card" data-value="feather">
+              <div class="duster-icon">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                  <line x1="25" y1="25" x2="38" y2="38" stroke="#8B7355" stroke-width="2.5" stroke-linecap="round"/>
+                  <path d="M22 22 Q12 16, 6 4 Q14 10, 22 22" fill="#E8D5B7" stroke="#BC9A6C" stroke-width="0.8"/>
+                  <path d="M22 22 Q17 14, 16 2 Q20 12, 22 22" fill="#F0E4D0" stroke="#BC9A6C" stroke-width="0.8"/>
+                </svg>
+              </div>
+              <span class="duster-name">Feather</span>
+              <span class="duster-desc">Precise strokes</span>
+            </div>
+            <div class="duster-card" data-value="vacuum">
+              <div class="duster-icon">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                  <rect x="12" y="4" width="16" height="7" rx="2" fill="#666"/>
+                  <rect x="14" y="11" width="12" height="4" fill="#888"/>
+                  <line x1="20" y1="15" x2="20" y2="34" stroke="#999" stroke-width="5" stroke-linecap="round"/>
+                  <circle cx="20" cy="34" r="3.5" fill="#777"/>
+                </svg>
+              </div>
+              <span class="duster-name">Vacuum</span>
+              <span class="duster-desc">Suction power</span>
+            </div>
+            <div class="duster-card" data-value="magic">
+              <div class="duster-icon">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                  <line x1="20" y1="20" x2="35" y2="35" stroke="#4A3728" stroke-width="3" stroke-linecap="round"/>
+                  <circle cx="17" cy="17" r="5" fill="#FFD700"/>
+                  <circle cx="17" cy="17" r="2.5" fill="#FFF8DC"/>
+                  <circle cx="10" cy="10" r="1.5" fill="#FFD700" opacity="0.7"/>
+                  <circle cx="24" cy="10" r="1.5" fill="#FFD700" opacity="0.7"/>
+                  <circle cx="10" cy="24" r="1.5" fill="#FFD700" opacity="0.7"/>
+                  <line x1="17" y1="8" x2="17" y2="5" stroke="#FFD700" stroke-width="1.2" stroke-linecap="round"/>
+                  <line x1="17" y1="26" x2="17" y2="29" stroke="#FFD700" stroke-width="1.2" stroke-linecap="round"/>
+                  <line x1="8" y1="17" x2="5" y2="17" stroke="#FFD700" stroke-width="1.2" stroke-linecap="round"/>
+                  <line x1="26" y1="17" x2="29" y2="17" stroke="#FFD700" stroke-width="1.2" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <span class="duster-name">Magic</span>
+              <span class="duster-desc">✨ Sparkle wand</span>
+            </div>
+          </div>
+
+          <div class="settings-card" style="margin-top: 16px;">
+            <div class="setting-row">
+              <div class="setting-info">
+                <h3>Sound Effects</h3>
+                <p>Play sounds while cleaning.</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="opt-sound-enabled" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="setting-row" id="volume-row">
+              <div class="setting-info">
+                <h3>Volume</h3>
+                <p>Sound effects volume level.</p>
+              </div>
+              <div class="setting-control">
+                <span class="volume-icon">🔈</span>
+                <input type="range" id="opt-sound-volume" min="0" max="1" step="0.05" value="0.5" class="slider">
+                <span class="volume-icon">🔊</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sites Section -->
+      <section id="sites" class="settings-section">
+        <div class="section-header">
+          <h2>Site Management</h2>
+          <p>View tracked sites and manage per-site settings.</p>
+        </div>
+
+        <div class="sites-toolbar">
+          <div class="search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" id="site-search" placeholder="Search sites...">
+          </div>
+          <div class="toolbar-actions">
+            <button class="toolbar-btn" id="bulk-enable">Enable All</button>
+            <button class="toolbar-btn" id="bulk-disable">Disable All</button>
+          </div>
+        </div>
+
+        <div class="sites-table-container">
+          <table class="sites-table">
+            <thead>
+              <tr>
+                <th>Site</th>
+                <th>Last Visited</th>
+                <th>Days Inactive</th>
+                <th>Status</th>
+                <th>Enabled</th>
+              </tr>
+            </thead>
+            <tbody id="sites-tbody">
+              <tr class="loading-row">
+                <td colspan="5">Loading sites...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Advanced Section -->
+      <section id="advanced" class="settings-section">
+        <div class="section-header">
+          <h2>Advanced</h2>
+          <p>Import/export settings and data management.</p>
+        </div>
+
+        <div class="settings-card">
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>Export Settings</h3>
+              <p>Download your settings as a JSON file.</p>
+            </div>
+            <button class="action-btn secondary" id="export-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export
+            </button>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>Import Settings</h3>
+              <p>Load settings from a JSON file.</p>
+            </div>
+            <label class="action-btn secondary import-label">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Import
+              <input type="file" id="import-input" accept=".json" hidden>
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-card danger-zone">
+          <h3 class="danger-title">⚠️ Danger Zone</h3>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>Reset Settings</h3>
+              <p>Restore all settings to their defaults.</p>
+            </div>
+            <button class="action-btn danger" id="reset-btn">Reset</button>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>Clear Visit History</h3>
+              <p>Remove all tracked site visit data.</p>
+            </div>
+            <button class="action-btn danger" id="clear-history-btn">Clear</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast"></div>
+
+  <script src="options.js"></script>
+</body>
+</html>

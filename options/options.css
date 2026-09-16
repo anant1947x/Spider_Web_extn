@@ -1,0 +1,758 @@
+/* ============================================================
+   Spider Web & Dust — Options Page Styles
+   Full dashboard with sidebar, cards, and premium aesthetics.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ── Reset & Base ─────────────────────────────────────── */
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  color: #e4e4e7;
+  background: #09090b;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ── Layout ───────────────────────────────────────────── */
+
+.options-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ── Sidebar ──────────────────────────────────────────── */
+
+.sidebar {
+  width: 240px;
+  min-height: 100vh;
+  background: #0c0c0f;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 24px 16px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 8px;
+}
+
+.sidebar-header .logo-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(167, 139, 250, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+  flex-shrink: 0;
+}
+
+.sidebar-header h2 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f4f4f5;
+  letter-spacing: -0.2px;
+}
+
+.version {
+  font-size: 11px;
+  color: #52525b;
+  font-weight: 500;
+}
+
+/* ── Nav ──────────────────────────────────────────────── */
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: #71717a;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #a1a1aa;
+}
+
+.nav-item.active {
+  background: rgba(167, 139, 250, 0.1);
+  color: #a78bfa;
+}
+
+.nav-item svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.nav-item.active svg {
+  opacity: 1;
+}
+
+/* ── Main Content ─────────────────────────────────────── */
+
+.main-content {
+  flex: 1;
+  margin-left: 240px;
+  padding: 40px 48px;
+  max-width: 860px;
+}
+
+/* ── Settings Section ─────────────────────────────────── */
+
+.settings-section {
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+
+.settings-section.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.section-header {
+  margin-bottom: 24px;
+}
+
+.section-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #f4f4f5;
+  letter-spacing: -0.5px;
+}
+
+.section-header p {
+  font-size: 14px;
+  color: #71717a;
+  margin-top: 4px;
+}
+
+/* ── Settings Card ────────────────────────────────────── */
+
+.settings-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s;
+}
+
+.setting-row:last-child {
+  border-bottom: none;
+}
+
+.setting-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.setting-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.setting-info h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.setting-info p {
+  font-size: 12px;
+  color: #52525b;
+  margin-top: 2px;
+}
+
+.setting-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ── Toggle Switch ────────────────────────────────────── */
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: #27272a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 2px;
+  bottom: 2px;
+  background: #71717a;
+  border-radius: 50%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+input:checked + .toggle-slider {
+  background: rgba(167, 139, 250, 0.25);
+  border-color: rgba(167, 139, 250, 0.4);
+}
+
+input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+  background: #a78bfa;
+  box-shadow: 0 0 8px rgba(167, 139, 250, 0.5);
+}
+
+/* ── Slider ───────────────────────────────────────────── */
+
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 120px;
+  height: 4px;
+  background: #27272a;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #a78bfa;
+  border: 2px solid #09090b;
+  box-shadow: 0 0 6px rgba(167, 139, 250, 0.4);
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 14px rgba(167, 139, 250, 0.6);
+}
+
+.slider-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #a78bfa;
+  min-width: 36px;
+  text-align: right;
+}
+
+.slider-label-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.number-input {
+  width: 52px;
+  padding: 5px 8px;
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: #a78bfa;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.number-input:focus {
+  border-color: rgba(167, 139, 250, 0.4);
+}
+
+.unit {
+  font-size: 12px;
+  color: #52525b;
+}
+
+/* ── Option Groups ────────────────────────────────────── */
+
+.option-group {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.option-btn {
+  padding: 6px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(39, 39, 42, 0.4);
+  color: #a1a1aa;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.option-btn:hover {
+  background: rgba(63, 63, 70, 0.6);
+  color: #d4d4d8;
+}
+
+.option-btn.active {
+  background: rgba(167, 139, 250, 0.15);
+  border-color: rgba(167, 139, 250, 0.35);
+  color: #a78bfa;
+  box-shadow: 0 0 12px rgba(167, 139, 250, 0.08);
+}
+
+/* ── Color Picker ─────────────────────────────────────── */
+
+.color-picker-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.color-input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 36px;
+  height: 36px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  background: none;
+  padding: 2px;
+}
+
+.color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 5px;
+}
+
+.color-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #71717a;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+/* ── Duster Grid ──────────────────────────────────────── */
+
+.duster-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 0 20px 20px;
+}
+
+.duster-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 12px;
+  background: rgba(39, 39, 42, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.duster-card:hover {
+  background: rgba(63, 63, 70, 0.4);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.duster-card.active {
+  background: rgba(167, 139, 250, 0.08);
+  border-color: rgba(167, 139, 250, 0.3);
+  box-shadow: 0 0 20px rgba(167, 139, 250, 0.08);
+}
+
+.duster-icon {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.duster-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #d4d4d8;
+}
+
+.duster-desc {
+  font-size: 10px;
+  color: #52525b;
+}
+
+/* ── Live Preview ─────────────────────────────────────── */
+
+.preview-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.preview-card h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #a1a1aa;
+  margin-bottom: 12px;
+}
+
+.preview-container {
+  width: 100%;
+  height: 200px;
+  background: #18181b;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+#preview-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Sites Table ──────────────────────────────────────── */
+
+.sites-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  flex: 1;
+  max-width: 300px;
+}
+
+.search-box svg {
+  color: #52525b;
+  flex-shrink: 0;
+}
+
+.search-box input {
+  background: none;
+  border: none;
+  outline: none;
+  color: #e4e4e7;
+  font-family: inherit;
+  font-size: 13px;
+  width: 100%;
+}
+
+.search-box input::placeholder {
+  color: #3f3f46;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.toolbar-btn {
+  padding: 7px 14px;
+  background: rgba(39, 39, 42, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  color: #a1a1aa;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.toolbar-btn:hover {
+  background: rgba(63, 63, 70, 0.6);
+  color: #d4d4d8;
+}
+
+.sites-table-container {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.sites-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.sites-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: #52525b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.sites-table td {
+  padding: 12px 16px;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.sites-table tr:last-child td {
+  border-bottom: none;
+}
+
+.sites-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.loading-row td {
+  text-align: center;
+  color: #52525b;
+  padding: 32px 16px;
+}
+
+.site-domain {
+  font-weight: 500;
+  color: #d4d4d8;
+}
+
+.stale-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.stale-badge.stale {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+
+.stale-badge.fresh {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+}
+
+/* ── Action Buttons ───────────────────────────────────── */
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.action-btn.secondary {
+  background: rgba(39, 39, 42, 0.5);
+  color: #a1a1aa;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.action-btn.secondary:hover {
+  background: rgba(63, 63, 70, 0.6);
+  color: #d4d4d8;
+}
+
+.action-btn.danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.action-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.import-label {
+  cursor: pointer;
+}
+
+/* ── Danger Zone ──────────────────────────────────────── */
+
+.danger-zone {
+  border-color: rgba(239, 68, 68, 0.15);
+}
+
+.danger-title {
+  padding: 14px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #f87171;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* ── Toast ────────────────────────────────────────────── */
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  padding: 12px 24px;
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #e4e4e7;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+  opacity: 0;
+  z-index: 1000;
+}
+
+.toast.visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+/* ── Volume ───────────────────────────────────────────── */
+
+.volume-icon {
+  font-size: 14px;
+}
+
+#volume-row .slider {
+  width: 100px;
+}
+
+/* ── Scrollbar ────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ── Responsive ───────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: 60px;
+    padding: 16px 8px;
+  }
+
+  .sidebar-header h2,
+  .sidebar-header .version,
+  .nav-item span {
+    display: none;
+  }
+
+  .nav-item {
+    justify-content: center;
+    padding: 10px;
+  }
+
+  .main-content {
+    margin-left: 60px;
+    padding: 24px 20px;
+  }
+
+  .duster-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
