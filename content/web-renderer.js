@@ -1,6 +1,7 @@
 /* ============================================================
-   Spider Web & Dust — Procedural Web Renderer
-   Generates realistic spider webs in corners and edges.
+   Spider Web & Dust — Cobweb Renderer
+   Detailed transparent cobweb assets plus intentionally
+   wall-anchored canvas filaments.
    ============================================================ */
 
 class WebRenderer {
@@ -10,424 +11,463 @@ class WebRenderer {
     this.width = 0;
     this.height = 0;
     this.time = 0;
-    this.cleanedAreas = []; // { x, y, radius, opacity }
-    this.fadeOutWebs = [];  // webs being cleaned
+    this.reducedMotion = window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    this.cornerAssets = [
+      'assets/cobwebs/corner_heavy.png',
+      'assets/cobwebs/corner_medium.png',
+      'assets/cobwebs/corner_light.png',
+      'assets/cobwebs/corner_medium.png'
+    ];
+    this.clusterAssets = ['assets/cobwebs/cluster.png'];
+    this.strandAssets = ['assets/cobwebs/strand.png'];
+    this.drapeAssets = ['assets/cobwebs/edge_drape.png'];
+
+    // The scene geometry is extension-wide, not based on a hostname. This
+    // makes the same settings read as the same abandoned room on every page.
+    this._baseSeed = this._hashString(this._sceneKey());
+    this._cleanupOld();
   }
 
-  onResize(w, h) {
-    this.width = w;
-    this.height = h;
+  _sceneKey() {
+    return [
+      'spw-global-web-layout-v4',
+      this.settings.webDensity || 'medium',
+      this.settings.dustIntensity || 'medium'
+    ].join('::');
+  }
+
+  _hashString(value) {
+    let hash = 0;
+    for (let index = 0; index < value.length; index++) {
+      hash = ((hash << 5) - hash) + value.charCodeAt(index);
+      hash |= 0;
+    }
+    return Math.abs(hash) || 42;
+  }
+
+  _mulberry32(seed) {
+    return function () {
+      let value = seed += 0x6D2B79F5;
+      value = Math.imul(value ^ (value >>> 15), value | 1);
+      value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+      return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  _cleanupOld() {
+    document.querySelectorAll('.spw-web-asset, [data-spw-web]').forEach(element => element.remove());
+  }
+
+  onResize(width, height) {
+    this.width = width;
+    this.height = height;
     this.generateWebs();
   }
 
   getDensityConfig() {
-    const configs = {
-      low:     { cornerWebs: 2, strandSets: 1, maxSpokes: 8,  webScale: 0.7 },
-      medium:  { cornerWebs: 3, strandSets: 2, maxSpokes: 12, webScale: 1.0 },
-      high:    { cornerWebs: 4, strandSets: 3, maxSpokes: 16, webScale: 1.2 },
-      extreme: { cornerWebs: 4, strandSets: 5, maxSpokes: 20, webScale: 1.4 }
+    const base = {
+      low:     { corners: 2, clusters: 1, drapes: 0, assetStrands: 1, canvasStrands: 2 },
+      medium:  { corners: 3, clusters: 2, drapes: 1, assetStrands: 2, canvasStrands: 4 },
+      high:    { corners: 3, clusters: 3, drapes: 1, assetStrands: 3, canvasStrands: 6 },
+      extreme: { corners: 4, clusters: 4, drapes: 2, assetStrands: 4, canvasStrands: 8 }
+    }[this.settings.webDensity] || { corners: 3, clusters: 2, drapes: 1, assetStrands: 2, canvasStrands: 4 };
+
+    const age = Math.max(0, Math.min(1, Number(this.settings._ageIntensity) || 0));
+    return {
+      ...base,
+      // Age subtly deepens opacity but never rearranges a user's chosen scene.
+      ageOpacity: age * 0.12
     };
-    return configs[this.settings.webDensity] || configs.medium;
   }
 
   generateWebs() {
-    this.webs = [];
+    this.cleanAll();
+    this._cleanupOld();
     if (!this.width || !this.height) return;
 
-    const cfg = this.getDensityConfig();
-    const w = this.width;
-    const h = this.height;
+    const config = this.getDensityConfig();
+    const rng = this._mulberry32(this._baseSeed);
+    const minDimension = Math.min(this.width, this.height);
 
-    // Corner positions: [anchorX, anchorY, startAngle, endAngle]
+    this._generateCornerWebs(rng, config, minDimension);
+    this._generateEdgeClusters(rng, config, minDimension);
+    this._generateDrapes(rng, config, minDimension);
+    this._generateAssetStrands(rng, config);
+
+    for (let index = 0; index < config.canvasStrands; index++) {
+      this.webs.push(this._createLongStrand(rng, index, config));
+    }
+  }
+
+  _generateCornerWebs(rng, config, minDimension) {
+    // All four variants are positioned against an actual viewport corner.
+    // The old bottom-right safe-offset caused the floating, misaligned asset.
     const corners = [
-      { x: 0, y: 0, startAngle: 0, endAngle: Math.PI / 2 },           // top-left
-      { x: w, y: 0, startAngle: Math.PI / 2, endAngle: Math.PI },      // top-right
-      { x: 0, y: h, startAngle: -Math.PI / 2, endAngle: 0 },           // bottom-left
-      { x: w, y: h, startAngle: Math.PI, endAngle: 3 * Math.PI / 2 }   // bottom-right
+      { x: 0, y: 0, transform: 'none' },
+      { x: this.width, y: 0, transform: 'scaleX(-1)' },
+      { x: 0, y: this.height, transform: 'scaleY(-1)' },
+      { x: this.width, y: this.height, transform: 'scale(-1,-1)' }
     ];
 
-    // Shuffle and pick corners
-    const shuffled = corners.sort(() => Math.random() - 0.5);
-    const picked = shuffled.slice(0, cfg.cornerWebs);
+    corners.slice(0, config.corners).forEach((corner, index) => {
+      // Slightly bigger at every density while retaining a readable centre.
+      const size = minDimension * (0.285 + rng() * 0.095);
+      const x = corner.x === this.width ? this.width - size : 0;
+      const y = corner.y === this.height ? this.height - size : 0;
 
-    for (const corner of picked) {
-      this.webs.push(this.createCornerWeb(corner, cfg));
-    }
-
-    // Add strand webs along edges
-    for (let i = 0; i < cfg.strandSets; i++) {
-      this.webs.push(...this.createStrandWebs());
-    }
-
-    // Add small hanging webs
-    if (cfg.strandSets > 1) {
-      this.webs.push(...this.createHangingWebs(cfg));
-    }
-  }
-
-  createCornerWeb(corner, cfg) {
-    const baseSize = Math.min(this.width, this.height) * 0.15 * cfg.webScale;
-    const size = baseSize * (0.8 + Math.random() * 0.4);
-    const spokeCount = Math.floor(cfg.maxSpokes * 0.6 + Math.random() * cfg.maxSpokes * 0.4);
-    const spiralCount = Math.floor(4 + Math.random() * 6);
-
-    // Generate spokes
-    const spokes = [];
-    const angleRange = corner.endAngle - corner.startAngle;
-
-    for (let i = 0; i < spokeCount; i++) {
-      const t = i / (spokeCount - 1);
-      const angle = corner.startAngle + t * angleRange;
-      // Add slight randomness to spoke angles
-      const jitter = (Math.random() - 0.5) * 0.08;
-      const spokeLength = size * (0.7 + Math.random() * 0.3);
-
-      spokes.push({
-        angle: angle + jitter,
-        length: spokeLength,
-        endX: corner.x + Math.cos(angle + jitter) * spokeLength,
-        endY: corner.y + Math.sin(angle + jitter) * spokeLength,
-        swayPhase: Math.random() * Math.PI * 2,
-        swayAmount: 0.5 + Math.random() * 1.5
+      this._placeAsset(this.cornerAssets[index], {
+        x,
+        y,
+        width: size,
+        height: size,
+        transform: corner.transform,
+        opacity: 0.59 + rng() * 0.12 + config.ageOpacity,
+        phase: rng() * Math.PI * 2,
+        label: 'corner web'
       });
-    }
-
-    // Generate spiral connections
-    const spirals = [];
-    for (let s = 1; s <= spiralCount; s++) {
-      const t = s / (spiralCount + 1);
-      const radius = size * t;
-      const points = [];
-
-      for (let i = 0; i < spokeCount; i++) {
-        const spoke = spokes[i];
-        const dist = Math.min(radius, spoke.length) * (0.9 + Math.random() * 0.2);
-        points.push({
-          x: corner.x + Math.cos(spoke.angle) * dist,
-          y: corner.y + Math.sin(spoke.angle) * dist,
-          swayPhase: Math.random() * Math.PI * 2,
-          swayAmount: 0.3 + Math.random() * 1.0
-        });
-      }
-      spirals.push(points);
-    }
-
-    return {
-      type: 'corner',
-      corner,
-      spokes,
-      spirals,
-      size,
-      opacity: 0.25 + Math.random() * 0.35,
-      fadeIn: 0,      // for entrance animation
-      fadeOut: 1       // for cleaning animation
-    };
-  }
-
-  createStrandWebs() {
-    const strands = [];
-    const count = 2 + Math.floor(Math.random() * 3);
-
-    for (let i = 0; i < count; i++) {
-      const edge = Math.floor(Math.random() * 4); // 0:top 1:right 2:bottom 3:left
-      let startX, startY, endX, endY;
-
-      switch (edge) {
-        case 0: // top edge to side
-          startX = Math.random() * this.width;
-          startY = 0;
-          endX = Math.random() < 0.5 ? 0 : this.width;
-          endY = Math.random() * this.height * 0.4;
-          break;
-        case 1: // right edge to top/bottom
-          startX = this.width;
-          startY = Math.random() * this.height;
-          endX = this.width - Math.random() * this.width * 0.3;
-          endY = Math.random() < 0.5 ? 0 : this.height;
-          break;
-        case 2: // bottom edge
-          startX = Math.random() * this.width;
-          startY = this.height;
-          endX = Math.random() < 0.5 ? 0 : this.width;
-          endY = this.height - Math.random() * this.height * 0.3;
-          break;
-        case 3: // left edge
-          startX = 0;
-          startY = Math.random() * this.height;
-          endX = Math.random() * this.width * 0.3;
-          endY = Math.random() < 0.5 ? 0 : this.height;
-          break;
-      }
-
-      // Create a sagging strand (catenary curve approximation)
-      const midX = (startX + endX) / 2;
-      const midY = (startY + endY) / 2;
-      const sag = 15 + Math.random() * 30;
-
-      strands.push({
-        type: 'strand',
-        startX, startY,
-        endX, endY,
-        midX, midY: midY + sag,
-        opacity: 0.15 + Math.random() * 0.2,
-        thickness: 0.5 + Math.random() * 0.8,
-        swayPhase: Math.random() * Math.PI * 2,
-        swayAmount: 1 + Math.random() * 2,
-        fadeIn: 0,
-        fadeOut: 1
-      });
-    }
-
-    return strands;
-  }
-
-  createHangingWebs(cfg) {
-    const webs = [];
-    const count = 1 + Math.floor(Math.random() * 2);
-
-    for (let i = 0; i < count; i++) {
-      const anchorX = this.width * (0.2 + Math.random() * 0.6);
-      const anchorY = 0;
-      const hangLength = 40 + Math.random() * 80;
-      const spreadAngle = 0.3 + Math.random() * 0.4;
-      const threadCount = 3 + Math.floor(Math.random() * 4);
-
-      const threads = [];
-      for (let t = 0; t < threadCount; t++) {
-        const angle = Math.PI / 2 - spreadAngle + (2 * spreadAngle * t / (threadCount - 1));
-        const len = hangLength * (0.7 + Math.random() * 0.3);
-        threads.push({
-          angle,
-          length: len,
-          endX: anchorX + Math.cos(angle) * len,
-          endY: anchorY + Math.sin(angle) * len,
-          swayPhase: Math.random() * Math.PI * 2,
-          swayAmount: 1 + Math.random() * 2
-        });
-      }
-
-      webs.push({
-        type: 'hanging',
-        anchorX, anchorY,
-        threads,
-        opacity: 0.2 + Math.random() * 0.2,
-        fadeIn: 0,
-        fadeOut: 1
-      });
-    }
-
-    return webs;
-  }
-
-  update(delta, currentTime) {
-    this.time += delta;
-
-    // Fade in webs
-    for (const web of this.webs) {
-      if (web.fadeIn < 1) {
-        web.fadeIn = Math.min(1, web.fadeIn + delta * 0.5);
-      }
-    }
-
-    // Process cleaning fade-outs
-    this.fadeOutWebs = this.fadeOutWebs.filter(fw => {
-      fw.fadeOut -= delta * 1.5;
-      return fw.fadeOut > 0;
     });
   }
 
-  render(ctx, w, h) {
-    const webColor = this.settings.webColor || '#e0e0e0';
-    const rgb = this.hexToRgb(webColor);
+  _generateEdgeClusters(rng, config, minDimension) {
+    // Stable edge slots make clusters visibly attached to the room boundary.
+    const slots = [
+      { edge: 'top', at: 0.26, rotation: 8 },
+      { edge: 'right', at: 0.34, rotation: 92 },
+      { edge: 'left', at: 0.58, rotation: -86 },
+      { edge: 'bottom', at: 0.68, rotation: 176 },
+      { edge: 'top', at: 0.73, rotation: -8 }
+    ];
 
-    for (const web of this.webs) {
-      if (web.fadeOut <= 0) continue;
-      const globalAlpha = web.opacity * web.fadeIn * web.fadeOut;
+    for (let index = 0; index < config.clusters; index++) {
+      const size = minDimension * (0.18 + rng() * 0.08);
+      const slot = slots[index % slots.length];
+      let x = 0;
+      let y = 0;
 
-      if (web.type === 'corner') {
-        this.renderCornerWeb(ctx, web, rgb, globalAlpha);
-      } else if (web.type === 'strand') {
-        this.renderStrand(ctx, web, rgb, globalAlpha);
-      } else if (web.type === 'hanging') {
-        this.renderHangingWeb(ctx, web, rgb, globalAlpha);
+      if (slot.edge === 'top') {
+        x = this.width * slot.at - size * 0.5;
+        y = -size * 0.18;
+      } else if (slot.edge === 'right') {
+        x = this.width - size * 0.78;
+        y = this.height * slot.at - size * 0.5;
+      } else if (slot.edge === 'bottom') {
+        x = this.width * slot.at - size * 0.5;
+        y = this.height - size * 0.78;
+      } else {
+        x = -size * 0.22;
+        y = this.height * slot.at - size * 0.5;
       }
-    }
 
-    // Render fading-out webs
-    for (const web of this.fadeOutWebs) {
-      const globalAlpha = web.opacity * web.fadeOut;
-      if (web.type === 'corner') {
-        this.renderCornerWeb(ctx, web, rgb, globalAlpha);
-      } else if (web.type === 'strand') {
-        this.renderStrand(ctx, web, rgb, globalAlpha);
-      } else if (web.type === 'hanging') {
-        this.renderHangingWeb(ctx, web, rgb, globalAlpha);
-      }
+      this._placeAsset(this.clusterAssets[index % this.clusterAssets.length], {
+        x,
+        y,
+        width: size,
+        height: size,
+        transform: 'rotate(' + slot.rotation + 'deg)',
+        opacity: 0.4 + rng() * 0.12 + config.ageOpacity,
+        phase: rng() * Math.PI * 2,
+        label: 'edge cobweb'
+      });
     }
   }
 
-  renderCornerWeb(ctx, web, rgb, alpha) {
-    const { corner, spokes, spirals } = web;
-    const t = this.time;
+  _generateDrapes(rng, config, minDimension) {
+    const slots = [
+      { at: 0.35, transform: 'rotate(4deg)' },
+      { at: 0.68, transform: 'scaleX(-1) rotate(-4deg)' }
+    ];
+
+    for (let index = 0; index < config.drapes; index++) {
+      const size = minDimension * (0.29 + rng() * 0.1);
+      const slot = slots[index % slots.length];
+      const x = Math.max(0, Math.min(this.width - size, this.width * slot.at - size * 0.5));
+
+      this._placeAsset(this.drapeAssets[index % this.drapeAssets.length], {
+        x,
+        y: -size * 0.1,
+        width: size,
+        height: size,
+        transform: slot.transform,
+        opacity: 0.42 + rng() * 0.1 + config.ageOpacity,
+        phase: rng() * Math.PI * 2,
+        label: 'hanging cobweb'
+      });
+    }
+  }
+
+  _generateAssetStrands(rng, config) {
+    for (let index = 0; index < config.assetStrands; index++) {
+      const width = this.width * (0.38 + rng() * 0.1);
+      const height = Math.min(this.height * 0.27, width * 0.39);
+      const slots = [
+        { x: -width * 0.08, y: -height * 0.16, transform: 'rotate(7deg)' },
+        { x: this.width - width * 0.92, y: -height * 0.16, transform: 'scaleX(-1) rotate(-7deg)' },
+        { x: -width * 0.36, y: this.height * 0.46 - height * 0.5, transform: 'rotate(86deg)' },
+        { x: this.width - width * 0.64, y: this.height * 0.56 - height * 0.5, transform: 'rotate(-86deg)' }
+      ];
+      const slot = slots[index % slots.length];
+
+      this._placeAsset(this.strandAssets[index % this.strandAssets.length], {
+        x: slot.x,
+        y: slot.y,
+        width,
+        height,
+        transform: slot.transform,
+        opacity: 0.25 + rng() * 0.09 + config.ageOpacity,
+        phase: rng() * Math.PI * 2,
+        label: 'wall-anchored cobweb strand'
+      });
+    }
+  }
+
+  _getStrandBlueprints() {
+    const width = this.width;
+    const height = this.height;
+
+    // Every endpoint lies on a screen edge or a screen corner. This is the
+    // structural difference that makes long threads feel connected to walls.
+    return [
+      { start: { x: 0, y: 0 }, control: { x: width * 0.34, y: height * 0.08 }, end: { x: width, y: height * 0.27 }, dual: true },
+      { start: { x: width, y: 0 }, control: { x: width * 0.62, y: height * 0.13 }, end: { x: 0, y: height * 0.31 }, dual: false },
+      { start: { x: 0, y: height }, control: { x: width * 0.14, y: height * 0.68 }, end: { x: width * 0.23, y: 0 }, dual: true },
+      { start: { x: width, y: height }, control: { x: width * 0.86, y: height * 0.64 }, end: { x: width * 0.77, y: 0 }, dual: false },
+      { start: { x: 0, y: height * 0.64 }, control: { x: width * 0.43, y: height * 0.72 }, end: { x: width, y: height * 0.77 }, dual: true },
+      { start: { x: width, y: height * 0.47 }, control: { x: width * 0.78, y: height * 0.72 }, end: { x: width * 0.67, y: height }, dual: false },
+      { start: { x: 0, y: height * 0.25 }, control: { x: width * 0.2, y: height * 0.52 }, end: { x: width * 0.34, y: height }, dual: true },
+      { start: { x: width * 0.45, y: 0 }, control: { x: width * 0.57, y: height * 0.48 }, end: { x: width * 0.79, y: height }, dual: false }
+    ];
+  }
+
+  _createLongStrand(rng, index, config) {
+    const blueprints = this._getStrandBlueprints();
+    const blueprint = blueprints[index % blueprints.length];
+    const path = {
+      start: { ...blueprint.start },
+      control: { ...blueprint.control },
+      end: { ...blueprint.end }
+    };
+    const separation = 5 + rng() * 2.8;
+
+    return {
+      type: 'strand',
+      ...path,
+      dualPath: blueprint.dual ? this._createTwinPath(path, separation) : null,
+      opacity: 0.11 + rng() * 0.055 + config.ageOpacity,
+      thickness: 0.52 + rng() * 0.34,
+      phase: rng() * Math.PI * 2,
+      fade: 1,
+      cleanStrength: 0.46
+    };
+  }
+
+  _createTwinPath(path, separation) {
+    const toward = (from, target, distance) => {
+      const dx = target.x - from.x;
+      const dy = target.y - from.y;
+      const length = Math.max(1, Math.hypot(dx, dy));
+      return { x: from.x + dx / length * distance, y: from.y + dy / length * distance };
+    };
+    const dx = path.end.x - path.start.x;
+    const dy = path.end.y - path.start.y;
+    const length = Math.max(1, Math.hypot(dx, dy));
+    const normal = { x: -dy / length * separation * 0.38, y: dx / length * separation * 0.38 };
+
+    return {
+      start: toward(path.start, path.control, separation),
+      control: { x: path.control.x + normal.x, y: path.control.y + normal.y },
+      end: toward(path.end, path.control, separation)
+    };
+  }
+
+  _placeAsset(asset, options) {
+    const element = document.createElement('img');
+    const colors = this.settings._adaptiveColors || {};
+    const darkSite = Boolean(colors.isDark);
+    const tint = darkSite
+      ? 'brightness(1.2) sepia(0.24) saturate(0.82) contrast(1.04)'
+      : 'brightness(0.48) sepia(0.45) saturate(0.85) contrast(1.14)';
+    const shadow = colors.webShadowColor || 'rgba(0,0,0,0.65)';
+    const highlight = colors.webHighlightColor || 'rgba(255,250,240,0.2)';
+
+    element.src = chrome.runtime.getURL(asset);
+    element.className = 'spw-web-asset';
+    element.dataset.spwWeb = options.label;
+    element.alt = '';
+    element.draggable = false;
+    element.setAttribute('aria-hidden', 'true');
+    element.style.cssText = [
+      'position:fixed',
+      'left:' + options.x.toFixed(1) + 'px',
+      'top:' + options.y.toFixed(1) + 'px',
+      'width:' + options.width.toFixed(1) + 'px',
+      'height:' + options.height.toFixed(1) + 'px',
+      'object-fit:contain',
+      'pointer-events:none',
+      'z-index:2147483647',
+      'opacity:0',
+      'will-change:transform,opacity',
+      'transition:opacity 380ms ease-out',
+      'mix-blend-mode:' + (darkSite ? 'screen' : 'multiply'),
+      'filter:' + tint + ' drop-shadow(3px 5px 7px ' + shadow + ') drop-shadow(-0.5px -0.5px 0.8px ' + highlight + ')',
+      'transform:' + (options.transform || 'none'),
+      'transform-origin:center center'
+    ].join(';');
+
+    document.documentElement.appendChild(element);
+    const item = {
+      type: 'asset',
+      element,
+      opacity: Math.min(0.92, options.opacity),
+      fade: 1,
+      baseTransform: options.transform || 'none',
+      phase: options.phase,
+      cleanStrength: 0.3
+    };
+    this.webs.push(item);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (element.isConnected) element.style.opacity = String(item.opacity);
+      });
+    });
+  }
+
+  update(delta) {
+    this.time += delta;
+
+    for (const item of this.webs) {
+      if (item.type !== 'asset' || !item.element || this.reducedMotion) continue;
+      const x = Math.sin(this.time * 0.24 + item.phase) * 0.7;
+      const y = Math.cos(this.time * 0.18 + item.phase) * 0.42;
+      const base = item.baseTransform === 'none' ? '' : ' ' + item.baseTransform;
+      // Translate first so a mirror never reverses the tiny physical sway.
+      item.element.style.transform = 'translate3d(' + x.toFixed(2) + 'px,' + y.toFixed(2) + 'px,0)' + base;
+    }
+  }
+
+  render(ctx) {
+    const colors = this.settings._adaptiveColors || {};
+    const rgb = this.hexToRgb(this.settings.webColor || '#d8d0c4');
+    const darkSite = Boolean(colors.isDark);
 
     ctx.save();
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
 
-    // Draw spokes
-    for (const spoke of spokes) {
-      const sway = Math.sin(t * 0.8 + spoke.swayPhase) * spoke.swayAmount;
-      const endX = spoke.endX + sway;
-      const endY = spoke.endY + sway * 0.5;
+    for (const item of this.webs) {
+      if (item.type !== 'strand' || item.fade <= 0) continue;
+      const sway = this.reducedMotion ? 0 : Math.sin(this.time * 0.32 + item.phase) * 0.85;
+      const alpha = item.opacity * item.fade;
+      const shadowAlpha = alpha * (darkSite ? 0.46 : 0.72);
 
-      ctx.beginPath();
-      ctx.moveTo(corner.x, corner.y);
-      ctx.lineTo(endX, endY);
-      ctx.strokeStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha * 0.7})`;
-      ctx.lineWidth = 0.8;
-      ctx.stroke();
-    }
-
-    // Draw spiral connections
-    for (let si = 0; si < spirals.length; si++) {
-      const points = spirals[si];
-      if (points.length < 2) continue;
-
-      ctx.beginPath();
-      const sway0 = Math.sin(t * 0.6 + points[0].swayPhase) * points[0].swayAmount;
-      ctx.moveTo(points[0].x + sway0, points[0].y + sway0 * 0.5);
-
-      for (let i = 1; i < points.length; i++) {
-        const sway = Math.sin(t * 0.6 + points[i].swayPhase) * points[i].swayAmount;
-        const px = points[i].x + sway;
-        const py = points[i].y + sway * 0.5;
-
-        // Use quadratic curve for smoother spirals
-        if (i < points.length - 1) {
-          const swayNext = Math.sin(t * 0.6 + points[i + 1].swayPhase) * points[i + 1].swayAmount;
-          const nx = points[i + 1].x + swayNext;
-          const ny = points[i + 1].y + swayNext * 0.5;
-          const cpx = (px + nx) / 2;
-          const cpy = (py + ny) / 2;
-          ctx.quadraticCurveTo(px, py, cpx, cpy);
-        } else {
-          ctx.lineTo(px, py);
-        }
-      }
-
-      const spiralAlpha = alpha * (0.3 + 0.5 * (si / spirals.length));
-      ctx.strokeStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${spiralAlpha})`;
-      ctx.lineWidth = 0.5;
-      ctx.stroke();
+      this._strokeStrand(ctx, item, sway + 1.1, 1.45, 'rgba(10, 7, 5, ' + shadowAlpha + ')', item.thickness * 2.05);
+      this._strokeStrand(ctx, item, sway, 0, 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + alpha + ')', item.thickness);
+      this._strokeStrand(ctx, item, sway - 0.35, -0.28, 'rgba(255, 248, 233, ' + (alpha * 0.38) + ')', item.thickness * 0.42);
     }
 
     ctx.restore();
   }
 
-  renderStrand(ctx, strand, rgb, alpha) {
-    const t = this.time;
-    const sway = Math.sin(t * 0.5 + strand.swayPhase) * strand.swayAmount;
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(strand.startX, strand.startY);
-    ctx.quadraticCurveTo(
-      strand.midX + sway,
-      strand.midY + sway * 0.5,
-      strand.endX,
-      strand.endY
-    );
-    ctx.strokeStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
-    ctx.lineWidth = strand.thickness;
-    ctx.lineCap = 'round';
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  renderHangingWeb(ctx, web, rgb, alpha) {
-    const t = this.time;
-
-    ctx.save();
-    ctx.lineCap = 'round';
-
-    for (const thread of web.threads) {
-      const sway = Math.sin(t * 0.7 + thread.swayPhase) * thread.swayAmount;
-
+  _strokeStrand(ctx, item, sway, offsetY, color, width) {
+    const drawPath = path => {
       ctx.beginPath();
-      ctx.moveTo(web.anchorX, web.anchorY);
+      ctx.moveTo(path.start.x, path.start.y + offsetY);
       ctx.quadraticCurveTo(
-        (web.anchorX + thread.endX) / 2 + sway,
-        (web.anchorY + thread.endY) / 2,
-        thread.endX + sway,
-        thread.endY
+        path.control.x + sway,
+        path.control.y + sway * 0.5 + offsetY,
+        path.end.x,
+        path.end.y + offsetY
       );
-      ctx.strokeStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha * 0.6})`;
-      ctx.lineWidth = 0.6;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
       ctx.stroke();
-    }
+    };
 
-    // Connect thread endpoints
-    if (web.threads.length > 1) {
-      ctx.beginPath();
-      const first = web.threads[0];
-      const sway0 = Math.sin(t * 0.7 + first.swayPhase) * first.swayAmount;
-      ctx.moveTo(first.endX + sway0, first.endY);
-
-      for (let i = 1; i < web.threads.length; i++) {
-        const th = web.threads[i];
-        const sw = Math.sin(t * 0.7 + th.swayPhase) * th.swayAmount;
-        ctx.lineTo(th.endX + sw, th.endY);
-      }
-      ctx.strokeStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha * 0.3})`;
-      ctx.lineWidth = 0.4;
-      ctx.stroke();
-    }
-
-    ctx.restore();
+    drawPath(item);
+    if (item.dualPath) drawPath(item.dualPath);
   }
 
-  // Clean area — marks webs overlapping with the cleaned region
   cleanArea(x, y, radius) {
-    for (let i = this.webs.length - 1; i >= 0; i--) {
-      const web = this.webs[i];
-      if (this.webOverlapsCircle(web, x, y, radius)) {
-        web.fadeOut = Math.max(0, web.fadeOut - 0.15);
-        if (web.fadeOut <= 0.05) {
-          this.fadeOutWebs.push({ ...web, fadeOut: 0.3 });
-          this.webs.splice(i, 1);
-        }
+    for (let index = this.webs.length - 1; index >= 0; index--) {
+      const item = this.webs[index];
+      const touched = item.type === 'asset'
+        ? this._assetIntersects(item, x, y, radius)
+        : this._strandIntersects(item, x, y, radius);
+
+      if (!touched) continue;
+      item.fade = Math.max(0, item.fade - item.cleanStrength);
+
+      if (item.element) item.element.style.opacity = String(item.opacity * item.fade);
+      if (item.fade <= 0.03) {
+        if (item.element) item.element.remove();
+        this.webs.splice(index, 1);
       }
     }
   }
 
-  webOverlapsCircle(web, cx, cy, r) {
-    if (web.type === 'corner') {
-      const dx = web.corner.x - cx;
-      const dy = web.corner.y - cy;
-      return Math.sqrt(dx * dx + dy * dy) < r + web.size;
-    } else if (web.type === 'strand') {
-      // Check distance from circle center to strand midpoint
-      const dx = web.midX - cx;
-      const dy = web.midY - cy;
-      return Math.sqrt(dx * dx + dy * dy) < r + 50;
-    } else if (web.type === 'hanging') {
-      const dx = web.anchorX - cx;
-      const dy = web.anchorY - cy;
-      return Math.sqrt(dx * dx + dy * dy) < r + 60;
+  _assetIntersects(item, x, y, radius) {
+    const rect = item.element.getBoundingClientRect();
+    const closestX = Math.max(rect.left, Math.min(x, rect.right));
+    const closestY = Math.max(rect.top, Math.min(y, rect.bottom));
+    const dx = x - closestX;
+    const dy = y - closestY;
+    return dx * dx + dy * dy <= radius * radius;
+  }
+
+  _strandIntersects(item, x, y, radius) {
+    if (this._distanceToQuadratic(item, x, y) <= radius + item.thickness * 4) return true;
+    return Boolean(item.dualPath) &&
+      this._distanceToQuadratic(item.dualPath, x, y) <= radius + item.thickness * 4;
+  }
+
+  _distanceToQuadratic(path, x, y) {
+    let shortest = Infinity;
+    let previous = path.start;
+    const steps = 22;
+    for (let step = 1; step <= steps; step++) {
+      const t = step / steps;
+      const inverse = 1 - t;
+      const current = {
+        x: inverse * inverse * path.start.x + 2 * inverse * t * path.control.x + t * t * path.end.x,
+        y: inverse * inverse * path.start.y + 2 * inverse * t * path.control.y + t * t * path.end.y
+      };
+      shortest = Math.min(shortest, this._distanceToSegment(x, y, previous.x, previous.y, current.x, current.y));
+      previous = current;
     }
-    return false;
+    return shortest;
+  }
+
+  _distanceToSegment(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    if (dx === 0 && dy === 0) return Math.hypot(px - x1, py - y1);
+    const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)));
+    return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+  }
+
+  cleanAll() {
+    for (const item of this.webs) {
+      if (item.element) item.element.remove();
+    }
+    this.webs = [];
   }
 
   isAllCleaned() {
-    return this.webs.length === 0 && this.fadeOutWebs.length === 0;
+    return this.webs.length === 0;
+  }
+
+  destroy() {
+    this.cleanAll();
+    this._cleanupOld();
   }
 
   hexToRgb(hex) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : { r: 224, g: 224, b: 224 };
+    return result
+      ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) }
+      : { r: 216, g: 208, b: 196 };
   }
 }
 

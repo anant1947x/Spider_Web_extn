@@ -28,7 +28,7 @@
         </div>
         <div>
           <h2>Spider Web & Dust</h2>
-          <span class="version">v1.0.0</span>
+          <span class="version">v1.1.0</span>
         </div>
       </div>
 
@@ -84,9 +84,9 @@
               <p>Days of inactivity before webs and dust appear on a site.</p>
             </div>
             <div class="setting-control">
-              <input type="range" id="opt-inactivity-days" min="1" max="90" value="7" class="slider">
+              <input type="range" id="opt-inactivity-days" min="0" max="90" value="7" class="slider">
               <div class="slider-label-group">
-                <input type="number" id="opt-inactivity-days-num" min="1" max="90" value="7" class="number-input">
+                <input type="number" id="opt-inactivity-days-num" min="0" max="90" value="7" class="number-input">
                 <span class="unit">days</span>
               </div>
             </div>
@@ -140,6 +140,17 @@
 
           <div class="setting-row">
             <div class="setting-info">
+              <h3>Crawling Spider</h3>
+              <p>Let a small 3D spider follow the long web strands. It hides when brushing and respects reduced-motion settings.</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="opt-spider-enabled" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
               <h3>Web Color</h3>
               <p>Color of spider web strands.</p>
             </div>
@@ -162,8 +173,8 @@
 
           <div class="setting-row">
             <div class="setting-info">
-              <h3>Theme</h3>
-              <p>Color theme for extension UI.</p>
+              <h3>Website Contrast</h3>
+              <p>Automatically adapt web shadows and dust to the page behind them.</p>
             </div>
             <div class="option-group" id="opt-theme">
               <button class="option-btn" data-value="light">☀️ Light</button>

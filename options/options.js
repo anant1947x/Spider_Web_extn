@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setOptionGroup('opt-web-density', s.webDensity);
     setOptionGroup('opt-dust-intensity', s.dustIntensity);
     setOptionGroup('opt-theme', s.theme);
+    document.getElementById('opt-spider-enabled').checked = s.spiderEnabled !== false;
 
     document.getElementById('opt-web-color').value = s.webColor;
     document.getElementById('web-color-label').textContent = s.webColor;
@@ -113,7 +114,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     save({ inactivityDays: parseInt(daysSlider.value) });
   });
   daysNum.addEventListener('change', () => {
-    const val = Math.max(1, Math.min(90, parseInt(daysNum.value) || 7));
+    const parsed = Number.parseInt(daysNum.value, 10);
+    const val = Math.max(0, Math.min(90, Number.isFinite(parsed) ? parsed : 7));
     daysNum.value = val;
     daysSlider.value = val;
     updateSliderFill(daysSlider);
@@ -135,6 +137,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupOptionGroup('opt-dust-intensity', 'dustIntensity');
   setupOptionGroup('opt-theme', 'theme');
   setupOptionGroup('opt-cleaning-mode', 'cleaningMode');
+
+  document.getElementById('opt-spider-enabled').addEventListener('change', (e) => {
+    save({ spiderEnabled: e.target.checked });
+  });
 
   function setupOptionGroup(groupId, settingKey) {
     const btns = document.querySelectorAll(`#${groupId} .option-btn`);
@@ -271,16 +277,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       const imported = JSON.parse(text);
 
       // Validate basic shape
-      if (typeof imported !== 'object' || !imported.inactivityDays) {
+      if (!imported || typeof imported !== 'object' ||
+          !Number.isFinite(Number(imported.inactivityDays))) {
         throw new Error('Invalid settings file');
       }
 
-      await chrome.runtime.sendMessage({
+      const response = await chrome.runtime.sendMessage({
         type: 'UPDATE_SETTINGS',
         payload: imported
       });
 
-      currentSettings = { ...currentSettings, ...imported };
+      currentSettings = response?.settings || { ...currentSettings, ...imported };
       applySettings(currentSettings);
       showToast('Settings imported successfully!');
     } catch (err) {
@@ -312,11 +319,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ── Save Helper ─────────────────────────────────────────
 
   async function save(partial) {
-    currentSettings = { ...currentSettings, ...partial };
-    await chrome.runtime.sendMessage({
+    const response = await chrome.runtime.sendMessage({
       type: 'UPDATE_SETTINGS',
       payload: partial
     });
+    currentSettings = response?.settings || { ...currentSettings, ...partial };
     updatePreview();
   }
 
@@ -387,44 +394,50 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Generate preview web strands
     function regenWebs() {
       webStrands.length = 0;
-      const counts = { low: 3, medium: 6, high: 10, extreme: 15 };
-      const count = counts[currentSettings.webDensity] || 6;
+      const configs = {
+        low: { corners: 2, clusters: 1, strands: 2 },
+        medium: { corners: 3, clusters: 2, strands: 4 },
+        high: { corners: 3, clusters: 3, strands: 6 },
+        extreme: { corners: 4, clusters: 4, strands: 9 }
+      };
+      const config = configs[currentSettings.webDensity] || configs.medium;
+      const size = Math.min(w, h) * 0.23;
+      const corners = [
+        { x: 0, y: 0, start: 0, end: Math.PI / 2 },
+        { x: w, y: 0, start: Math.PI / 2, end: Math.PI },
+        { x: 0, y: h, start: -Math.PI / 2, end: 0 },
+        { x: w, y: h, start: Math.PI, end: Math.PI * 1.5 }
+      ].sort(() => Math.random() - 0.5);
 
-      // Corner web in top-left
-      const spokeCount = Math.min(count, 8);
-      const size = Math.min(w, h) * 0.35;
-      for (let i = 0; i < spokeCount; i++) {
-        const angle = (i / (spokeCount - 1)) * (Math.PI / 2);
+      corners.slice(0, config.corners).forEach(corner => {
         webStrands.push({
-          type: 'spoke',
-          x1: 0, y1: 0,
-          x2: Math.cos(angle) * size,
-          y2: Math.sin(angle) * size,
+          type: 'corner',
+          ...corner,
+          size: size * (0.78 + Math.random() * 0.35),
+          swayPhase: Math.random() * Math.PI * 2
+        });
+      });
+
+      for (let i = 0; i < config.clusters; i++) {
+        webStrands.push({
+          type: 'cluster',
+          x: w * (0.08 + Math.random() * 0.84),
+          y: Math.random() > 0.5 ? 0 : h,
+          size: size * (0.35 + Math.random() * 0.32),
           swayPhase: Math.random() * Math.PI * 2
         });
       }
 
-      // Spiral connections
-      for (let s = 1; s <= 4; s++) {
-        const r = size * (s / 5);
-        const pts = [];
-        for (let i = 0; i < spokeCount; i++) {
-          const angle = (i / (spokeCount - 1)) * (Math.PI / 2);
-          pts.push({
-            x: Math.cos(angle) * r * (0.9 + Math.random() * 0.2),
-            y: Math.sin(angle) * r * (0.9 + Math.random() * 0.2)
-          });
-        }
-        webStrands.push({ type: 'spiral', points: pts, swayPhase: Math.random() * Math.PI * 2 });
-      }
-
-      // Some strands
-      for (let i = 0; i < Math.max(0, count - 5); i++) {
+      for (let i = 0; i < config.strands; i++) {
+        const y = h * (0.08 + Math.random() * 0.84);
         webStrands.push({
           type: 'strand',
-          x1: Math.random() * w, y1: 0,
-          x2: w, y2: Math.random() * h * 0.5,
-          midY: Math.random() * 20,
+          x1: -10,
+          y1: y + (Math.random() - 0.5) * 16,
+          x2: w + 10,
+          y2: y + (Math.random() - 0.5) * 26,
+          midY: 12 + Math.random() * 26,
+          dual: i === 0 || i % 3 === 1,
           swayPhase: Math.random() * Math.PI * 2
         });
       }
@@ -447,7 +460,46 @@ document.addEventListener('DOMContentLoaded', async () => {
       for (const strand of webStrands) {
         const sway = Math.sin(time * 0.8 + strand.swayPhase) * 1.5;
 
-        if (strand.type === 'spoke') {
+        if (strand.type === 'corner') {
+          const spokes = 7;
+          ctx.strokeStyle = 'rgba(' + webRgb.r + ',' + webRgb.g + ',' + webRgb.b + ',0.42)';
+          ctx.lineWidth = 0.7;
+          for (let i = 0; i < spokes; i++) {
+            const angle = strand.start + (strand.end - strand.start) * (i / (spokes - 1));
+            ctx.beginPath();
+            ctx.moveTo(strand.x, strand.y);
+            ctx.lineTo(
+              strand.x + Math.cos(angle) * strand.size + sway,
+              strand.y + Math.sin(angle) * strand.size
+            );
+            ctx.stroke();
+          }
+          for (let ring = 1; ring < 5; ring++) {
+            ctx.beginPath();
+            const radius = strand.size * ring / 5;
+            for (let step = 0; step <= spokes; step++) {
+              const angle = strand.start + (strand.end - strand.start) * (step / spokes);
+              const x = strand.x + Math.cos(angle) * radius + sway;
+              const y = strand.y + Math.sin(angle) * radius;
+              if (step === 0) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
+            }
+            ctx.strokeStyle = 'rgba(' + webRgb.r + ',' + webRgb.g + ',' + webRgb.b + ',0.24)';
+            ctx.lineWidth = 0.45;
+            ctx.stroke();
+          }
+        } else if (strand.type === 'cluster') {
+          ctx.save();
+          ctx.translate(strand.x + sway, strand.y);
+          ctx.strokeStyle = 'rgba(' + webRgb.r + ',' + webRgb.g + ',' + webRgb.b + ',0.29)';
+          ctx.lineWidth = 0.6;
+          for (let i = 0; i < 5; i++) {
+            ctx.beginPath();
+            ctx.ellipse(0, (i - 2) * 3, strand.size, strand.size * (0.2 + i * 0.04), i * 0.36, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          ctx.restore();
+        } else if (strand.type === 'spoke') {
           ctx.beginPath();
           ctx.moveTo(strand.x1, strand.y1);
           ctx.lineTo(strand.x2 + sway, strand.y2 + sway * 0.5);
@@ -474,6 +526,17 @@ document.addEventListener('DOMContentLoaded', async () => {
           ctx.strokeStyle = `rgba(${webRgb.r},${webRgb.g},${webRgb.b},0.2)`;
           ctx.lineWidth = 0.6;
           ctx.stroke();
+          if (strand.dual) {
+            ctx.beginPath();
+            ctx.moveTo(strand.x1, strand.y1 + 4);
+            ctx.quadraticCurveTo(
+              (strand.x1 + strand.x2) / 2 + sway + 5,
+              (strand.y1 + strand.y2) / 2 + strand.midY + sway + 4,
+              strand.x2, strand.y2 + 4
+            );
+            ctx.strokeStyle = 'rgba(' + webRgb.r + ',' + webRgb.g + ',' + webRgb.b + ',0.14)';
+            ctx.stroke();
+          }
         }
       }
 

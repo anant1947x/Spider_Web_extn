@@ -1,515 +1,447 @@
 /* ============================================================
-   Spider Web & Dust — Duster Engine
-   Handles manual wipe + auto-clean interactions with sparkles.
+   Spider Web & Dust — Cleaning Engine
+   Manual brushing and a complete serpentine auto-clean sweep.
    ============================================================ */
 
 class DusterEngine {
-  constructor(settings, overlay, webRenderer, dustSystem, soundManager) {
+  constructor(settings, overlay, webRenderer, dustSystem, soundManager, spiderRenderer) {
     this.settings = settings;
     this.overlay = overlay;
     this.webRenderer = webRenderer;
     this.dustSystem = dustSystem;
     this.soundManager = soundManager;
+    this.spiderRenderer = spiderRenderer;
 
     this.isCleaningMode = false;
     this.isAutoCleaning = false;
+    this.isPointerDown = false;
+    this.completionStarted = false;
     this.sparkles = [];
-    this.cleanTrail = [];  // sparkle trail behind duster
-    this.autoCleanProgress = 0;
-    this.autoCleanPhase = 0; // 0: sweep right, 1: sweep down
     this.cleanButton = null;
-    this.lastMouseX = 0;
-    this.lastMouseY = 0;
-    this.cleanRadius = 60;
+    this.autoButton = null;
+    this.tooltip = null;
+    this.cleanRadius = this._getCleanRadius();
+    this.lastPointer = { x: 0, y: 0 };
     this.whooshCooldown = 0;
+    this.autoRoute = [];
+    this.autoRouteIndex = 0;
+    this.autoDuster = { x: -80, y: -80, visible: false, radius: 145 };
 
-    // Auto-clean duster position
-    this.autoDuster = { x: 0, y: 0, visible: false };
+    this._onPointerDown = this._onPointerDown.bind(this);
+    this._onPointerMove = this._onPointerMove.bind(this);
+    this._onPointerUp = this._onPointerUp.bind(this);
+    this._onKeyDown = this._onKeyDown.bind(this);
+  }
 
-    this._onMouseMove = this._onMouseMove.bind(this);
-    this._onMouseDown = this._onMouseDown.bind(this);
-    this._onClick = this._onClick.bind(this);
+  _getCleanRadius() {
+    const styles = { classic: 78, feather: 58, vacuum: 105, magic: 88 };
+    return styles[this.settings.dusterStyle] || styles.classic;
   }
 
   init() {
-    this.createCleanButton();
+    this.createCleanButtons();
   }
 
-  createCleanButton() {
-    // Floating clean button
-    this.cleanButton = document.createElement('div');
-    this.cleanButton.id = 'spiderweb-clean-btn';
-    this.cleanButton.innerHTML = `
-      <div class="spw-btn-inner">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2C12 2 8 6 8 10C8 12 9 14 9 14L6 20C6 20 5 22 7 22H17C19 22 18 20 18 20L15 14C15 14 16 12 16 10C16 6 12 2 12 2Z" fill="currentColor" opacity="0.9"/>
-          <path d="M10 14H14L12 10L10 14Z" fill="rgba(255,255,255,0.3)"/>
-          <circle cx="12" cy="7" r="1.5" fill="rgba(255,255,255,0.4)"/>
-        </svg>
-        <span>Clean</span>
-      </div>
-    `;
-
+  createCleanButtons() {
+    const mode = this.settings.cleaningMode || 'both';
+    this.cleanButton = this._createButton(
+      'spiderweb-clean-btn',
+      mode === 'both' ? 'Brush' : 'Clean',
+      this._broomIcon()
+    );
     this.cleanButton.addEventListener('click', () => {
-      const mode = this.settings.cleaningMode;
-      if (mode === 'manual' || mode === 'both') {
-        this.startManualCleaning();
-      } else if (mode === 'auto') {
-        this.startAutoClean();
-      }
+      if (mode === 'auto') this.startAutoClean();
+      else this.startManualCleaning();
     });
 
-    // Add mode toggle if "both"
-    if (this.settings.cleaningMode === 'both') {
-      const autoBtn = document.createElement('div');
-      autoBtn.id = 'spiderweb-auto-btn';
-      autoBtn.innerHTML = `
-        <div class="spw-btn-inner spw-auto">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" fill="currentColor"/>
-          </svg>
-          <span>Auto</span>
-        </div>
-      `;
-      autoBtn.addEventListener('click', () => this.startAutoClean());
-      document.documentElement.appendChild(autoBtn);
+    if (mode === 'both') {
+      this.autoButton = this._createButton('spiderweb-auto-btn', 'Sweep', this._sweepIcon());
+      this.autoButton.addEventListener('click', () => this.startAutoClean());
     }
+  }
 
-    document.documentElement.appendChild(this.cleanButton);
+  _createButton(id, label, icon) {
+    const button = document.createElement('button');
+    button.id = id;
+    button.type = 'button';
+    button.className = 'spw-action-button';
+    button.setAttribute('aria-label', label + ' cobwebs and dust');
+    button.innerHTML = '<span class="spw-btn-inner">' + icon + '<span>' + label + '</span></span>';
+    document.documentElement.appendChild(button);
+    return button;
+  }
+
+  _broomIcon() {
+    return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+      '<path d="M14 3l7 7-2.2 2.2-7-7L14 3z" fill="currentColor" opacity=".82"/>' +
+      '<path d="M4.5 14.7c2.5-2.5 5.5-3.2 7.6-1.1s1.4 5.1-1.1 7.6l-6.2-6.5z" fill="currentColor" opacity=".96"/>' +
+      '<path d="M6.2 17.1l3.7 3.8M8.3 15.8l3.7 3.8M4.9 18.3l3.7 3.8" stroke="rgba(255,255,255,.38)" stroke-width=".7"/>' +
+      '</svg>';
+  }
+
+  _sweepIcon() {
+    return '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+      '<path d="M4 12a8 8 0 0113.6-5.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
+      '<path d="M17 3v4h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<path d="M20 12a8 8 0 01-13.6 5.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
+      '<path d="M7 21v-4h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '</svg>';
+  }
+
+  _setButtonsHidden(hidden) {
+    [this.cleanButton, this.autoButton].filter(Boolean).forEach(button => {
+      button.classList.toggle('spw-hidden', hidden);
+      button.disabled = hidden;
+    });
   }
 
   startManualCleaning() {
-    if (this.isCleaningMode) return;
+    if (this.isCleaningMode || this.isAutoCleaning || this.completionStarted) return;
+
     this.isCleaningMode = true;
+    this.isPointerDown = false;
     this.soundManager.init();
-
-    // Enable pointer events on overlay
     this.overlay.enablePointerEvents();
+    this.overlay.setCursor(this._getDusterCursor());
+    this._setButtonsHidden(true);
 
-    // Set duster cursor
-    const cursorSvg = this.getDusterCursor();
-    this.overlay.setCursor(`url("data:image/svg+xml,${encodeURIComponent(cursorSvg)}") 16 16, crosshair`);
-
-    // Add event listeners to overlay container
-    const container = this.overlay.container;
-    container.addEventListener('mousemove', this._onMouseMove);
-    container.addEventListener('mousedown', this._onMouseDown);
-
-    // Hide clean button
-    if (this.cleanButton) this.cleanButton.classList.add('spw-hidden');
-    const autoBtn = document.getElementById('spiderweb-auto-btn');
-    if (autoBtn) autoBtn.classList.add('spw-hidden');
-
-    // Add instruction tooltip
-    this.showTooltip('🧹 Drag to clean! Click anywhere to finish.');
+    const target = this.overlay.container;
+    target.addEventListener('pointerdown', this._onPointerDown);
+    target.addEventListener('pointermove', this._onPointerMove);
+    target.addEventListener('pointerup', this._onPointerUp);
+    target.addEventListener('pointercancel', this._onPointerUp);
+    document.addEventListener('keydown', this._onKeyDown);
+    this.showTooltip('Hold and drag to dust · Press Esc when you’re done');
   }
 
   stopManualCleaning() {
+    if (!this.isCleaningMode) return;
     this.isCleaningMode = false;
-
+    this.isPointerDown = false;
     this.overlay.disablePointerEvents();
     this.overlay.setCursor('default');
 
-    const container = this.overlay.container;
-    container.removeEventListener('mousemove', this._onMouseMove);
-    container.removeEventListener('mousedown', this._onMouseDown);
-
+    const target = this.overlay.container;
+    target.removeEventListener('pointerdown', this._onPointerDown);
+    target.removeEventListener('pointermove', this._onPointerMove);
+    target.removeEventListener('pointerup', this._onPointerUp);
+    target.removeEventListener('pointercancel', this._onPointerUp);
+    document.removeEventListener('keydown', this._onKeyDown);
     this.hideTooltip();
     this.checkCleaningComplete();
   }
 
-  _onMouseMove(e) {
+  _onPointerDown(event) {
     if (!this.isCleaningMode) return;
-
-    const x = e.clientX;
-    const y = e.clientY;
-
-    // Clean area under cursor
-    this.webRenderer.cleanArea(x, y, this.cleanRadius);
-    this.dustSystem.cleanArea(x, y, this.cleanRadius);
-
-    // Add sparkle trail
-    if (Math.random() < 0.4) {
-      this.addSparkle(x + (Math.random() - 0.5) * this.cleanRadius,
-                      y + (Math.random() - 0.5) * this.cleanRadius);
-    }
-
-    // Play sounds
-    this.whooshCooldown -= 1;
-    const dx = x - this.lastMouseX;
-    const dy = y - this.lastMouseY;
-    const speed = Math.sqrt(dx * dx + dy * dy);
-
-    if (speed > 5 && this.whooshCooldown <= 0) {
-      this.soundManager.playWhoosh();
-      this.whooshCooldown = 15;
-    }
-
-    if (Math.random() < 0.05) {
-      this.soundManager.playWebSnap();
-    }
-
-    this.lastMouseX = x;
-    this.lastMouseY = y;
+    event.preventDefault();
+    this.isPointerDown = true;
+    this.overlay.container.setPointerCapture?.(event.pointerId);
+    this._brush(event.clientX, event.clientY, this.cleanRadius);
   }
 
-  _onMouseDown(e) {
-    // Click to exit manual cleaning mode
-    if (this.isCleaningMode) {
-      // Small delay to allow the click to register cleaning
-      setTimeout(() => this.stopManualCleaning(), 100);
+  _onPointerMove(event) {
+    if (!this.isCleaningMode || !this.isPointerDown) return;
+    event.preventDefault();
+    this._brush(event.clientX, event.clientY, this.cleanRadius);
+  }
+
+  _onPointerUp(event) {
+    if (!this.isCleaningMode) return;
+    this.isPointerDown = false;
+    if (this.overlay.container.hasPointerCapture?.(event.pointerId)) {
+      this.overlay.container.releasePointerCapture(event.pointerId);
+    }
+    this.checkCleaningComplete();
+  }
+
+  _onKeyDown(event) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.stopManualCleaning();
     }
   }
 
-  startAutoClean() {
-    if (this.isAutoCleaning) return;
-    this.isAutoCleaning = true;
-    this.autoCleanProgress = 0;
-    this.autoCleanPhase = 0;
-    this.soundManager.init();
+  _brush(x, y, radius, isAuto = false) {
+    this.webRenderer.cleanArea(x, y, radius);
+    this.dustSystem.cleanArea(x, y, radius);
+    if (this.spiderRenderer?.cleanArea) this.spiderRenderer.cleanArea(x, y, radius);
 
-    this.autoDuster = {
-      x: -50,
-      y: this.overlay.height * 0.3,
-      visible: true
-    };
-
-    // Hide buttons
-    if (this.cleanButton) this.cleanButton.classList.add('spw-hidden');
-    const autoBtn = document.getElementById('spiderweb-auto-btn');
-    if (autoBtn) autoBtn.classList.add('spw-hidden');
-
-    this.showTooltip('✨ Auto-cleaning in progress...');
-  }
-
-  update(delta, currentTime) {
-    // Update sparkles
-    for (let i = this.sparkles.length - 1; i >= 0; i--) {
-      const s = this.sparkles[i];
-      s.life -= delta * 2;
-      s.y -= delta * 30;
-      s.x += s.vx * delta;
-      s.size *= 0.97;
-      s.rotation += s.rotSpeed * delta;
-
-      if (s.life <= 0) {
-        this.sparkles.splice(i, 1);
-      }
-    }
-
-    // Auto-clean animation
-    if (this.isAutoCleaning) {
-      this.updateAutoClean(delta);
-    }
-  }
-
-  updateAutoClean(delta) {
-    const speed = 350 * delta; // pixels per frame
-    const w = this.overlay.width;
-    const h = this.overlay.height;
-
-    if (this.autoCleanPhase === 0) {
-      // Sweep right
-      this.autoDuster.x += speed;
-      this.autoDuster.y = h * 0.3 + Math.sin(this.autoDuster.x * 0.02) * 30;
-
-      // Clean as we go
-      this.webRenderer.cleanArea(this.autoDuster.x, this.autoDuster.y, 120);
-      this.dustSystem.cleanArea(this.autoDuster.x, this.autoDuster.y, 120);
-
-      // Also clean above and below
-      this.webRenderer.cleanArea(this.autoDuster.x, this.autoDuster.y - 100, 80);
-      this.dustSystem.cleanArea(this.autoDuster.x, this.autoDuster.y - 100, 80);
-      this.webRenderer.cleanArea(this.autoDuster.x, this.autoDuster.y + 100, 80);
-      this.dustSystem.cleanArea(this.autoDuster.x, this.autoDuster.y + 100, 80);
-
-      // Add sparkles
-      if (Math.random() < 0.6) {
-        this.addSparkle(
-          this.autoDuster.x + (Math.random() - 0.5) * 80,
-          this.autoDuster.y + (Math.random() - 0.5) * 80
-        );
-      }
-
-      // Sound
-      this.whooshCooldown -= 1;
-      if (this.whooshCooldown <= 0) {
-        this.soundManager.playWhoosh();
-        this.whooshCooldown = 20;
-      }
-
-      if (this.autoDuster.x > w + 50) {
-        this.autoCleanPhase = 1;
-        this.autoDuster.x = w * 0.5;
-        this.autoDuster.y = -50;
-      }
-    } else if (this.autoCleanPhase === 1) {
-      // Sweep down
-      this.autoDuster.y += speed;
-      this.autoDuster.x = w * 0.5 + Math.sin(this.autoDuster.y * 0.02) * 40;
-
-      this.webRenderer.cleanArea(this.autoDuster.x, this.autoDuster.y, 120);
-      this.dustSystem.cleanArea(this.autoDuster.x, this.autoDuster.y, 120);
-      this.webRenderer.cleanArea(this.autoDuster.x - 100, this.autoDuster.y, 80);
-      this.dustSystem.cleanArea(this.autoDuster.x - 100, this.autoDuster.y, 80);
-      this.webRenderer.cleanArea(this.autoDuster.x + 100, this.autoDuster.y, 80);
-      this.dustSystem.cleanArea(this.autoDuster.x + 100, this.autoDuster.y, 80);
-
-      if (Math.random() < 0.6) {
-        this.addSparkle(
-          this.autoDuster.x + (Math.random() - 0.5) * 80,
-          this.autoDuster.y + (Math.random() - 0.5) * 80
-        );
-      }
-
-      this.whooshCooldown -= 1;
-      if (this.whooshCooldown <= 0) {
-        this.soundManager.playWhoosh();
-        this.whooshCooldown = 20;
-      }
-
-      if (this.autoDuster.y > h + 50) {
-        this.finishAutoClean();
-      }
-    }
-  }
-
-  finishAutoClean() {
-    this.isAutoCleaning = false;
-    this.autoDuster.visible = false;
-    this.hideTooltip();
-
-    // Sparkle burst!
-    const cx = this.overlay.width / 2;
-    const cy = this.overlay.height / 2;
-    for (let i = 0; i < 30; i++) {
-      const angle = (i / 30) * Math.PI * 2;
-      const dist = 50 + Math.random() * 100;
+    if (Math.random() < (isAuto ? 0.28 : 0.46) && this.sparkles.length < 90) {
       this.addSparkle(
-        cx + Math.cos(angle) * dist,
-        cy + Math.sin(angle) * dist,
-        true
+        x + (Math.random() - 0.5) * radius * 0.95,
+        y + (Math.random() - 0.5) * radius * 0.7
       );
     }
 
+    const dx = x - this.lastPointer.x;
+    const dy = y - this.lastPointer.y;
+    const speed = Math.hypot(dx, dy);
+    if (speed > 3 && this.whooshCooldown <= 0) {
+      this.soundManager.playWhoosh();
+      this.whooshCooldown = isAuto ? 0.32 : 0.17;
+    }
+    if (!isAuto && Math.random() < 0.06) this.soundManager.playWebSnap();
+    this.lastPointer = { x, y };
+  }
+
+  startAutoClean() {
+    if (this.isAutoCleaning || this.isCleaningMode || this.completionStarted) return;
+
+    this.isAutoCleaning = true;
+    this.soundManager.init();
+    this._setButtonsHidden(true);
+    this.showTooltip('Sweeping every corner…');
+    this._buildAutoRoute();
+    this.autoRouteIndex = 1;
+    this.autoDuster = {
+      ...this.autoRoute[0],
+      visible: true,
+      radius: Math.max(145, this.cleanRadius * 1.8)
+    };
+    this.lastPointer = { x: this.autoDuster.x, y: this.autoDuster.y };
+  }
+
+  _buildAutoRoute() {
+    const radius = Math.max(145, this.cleanRadius * 1.8);
+    const spacing = Math.max(125, radius * 1.15);
+    const rows = Math.max(2, Math.ceil(this.overlay.height / spacing) + 1);
+    const route = [];
+
+    for (let row = 0; row < rows; row++) {
+      const y = Math.min(this.overlay.height + radius * 0.3, row * spacing);
+      const forwards = row % 2 === 0;
+      route.push({ x: forwards ? -radius : this.overlay.width + radius, y });
+      route.push({ x: forwards ? this.overlay.width + radius : -radius, y });
+    }
+    this.autoRoute = route;
+  }
+
+  update(delta) {
+    this.whooshCooldown = Math.max(0, this.whooshCooldown - delta);
+
+    for (let index = this.sparkles.length - 1; index >= 0; index--) {
+      const sparkle = this.sparkles[index];
+      sparkle.life -= delta * 1.9;
+      sparkle.y -= delta * 24;
+      sparkle.x += sparkle.vx * delta;
+      sparkle.size *= 0.975;
+      sparkle.rotation += sparkle.rotationSpeed * delta;
+      if (sparkle.life <= 0) this.sparkles.splice(index, 1);
+    }
+
+    if (this.isAutoCleaning) this._updateAutoClean(delta);
+  }
+
+  _updateAutoClean(delta) {
+    const target = this.autoRoute[this.autoRouteIndex];
+    if (!target) {
+      this._finishAutoClean();
+      return;
+    }
+
+    const dx = target.x - this.autoDuster.x;
+    const dy = target.y - this.autoDuster.y;
+    const distance = Math.hypot(dx, dy);
+    const movement = Math.max(1, 1550 * delta);
+
+    if (distance <= movement) {
+      this.autoDuster.x = target.x;
+      this.autoDuster.y = target.y;
+      this.autoRouteIndex++;
+    } else {
+      this.autoDuster.x += (dx / distance) * movement;
+      this.autoDuster.y += (dy / distance) * movement;
+    }
+
+    this._brush(this.autoDuster.x, this.autoDuster.y, this.autoDuster.radius, true);
+  }
+
+  _finishAutoClean() {
+    this.isAutoCleaning = false;
+    this.autoDuster.visible = false;
+    this.webRenderer.cleanAll?.();
+    this.dustSystem.cleanAll?.();
+    this.spiderRenderer?.cleanAll?.();
+    this.hideTooltip();
+
+    const x = this.overlay.width / 2;
+    const y = this.overlay.height / 2;
+    for (let index = 0; index < 34; index++) {
+      const angle = index / 34 * Math.PI * 2;
+      const distance = 42 + Math.random() * 120;
+      this.addSparkle(x + Math.cos(angle) * distance, y + Math.sin(angle) * distance, true);
+    }
     this.soundManager.playComplete();
     this.checkCleaningComplete();
   }
 
   checkCleaningComplete() {
-    const allClean = this.webRenderer.isAllCleaned() && this.dustSystem.isAllCleaned();
+    const allClean = this.webRenderer.isAllCleaned() &&
+      this.dustSystem.isAllCleaned() &&
+      (!this.spiderRenderer || this.spiderRenderer.isAllCleaned());
+
     if (allClean) {
-      // Notify background to update visit timestamp
-      const hostname = window.location.hostname;
-      chrome.runtime.sendMessage({
-        type: 'MARK_CLEANED',
-        payload: { hostname }
-      });
+      this._completeScene();
+      return;
+    }
 
-      // Remove overlay after sparkles finish
-      setTimeout(() => {
-        if (this.overlay) this.overlay.destroy();
-        this.removeCleanButtons();
-      }, 2000);
-    } else {
-      // Show buttons again
-      if (this.cleanButton) this.cleanButton.classList.remove('spw-hidden');
-      const autoBtn = document.getElementById('spiderweb-auto-btn');
-      if (autoBtn) autoBtn.classList.remove('spw-hidden');
+    if (!this.isCleaningMode && !this.isAutoCleaning) {
+      this._setButtonsHidden(false);
     }
   }
 
-  removeCleanButtons() {
-    if (this.cleanButton && this.cleanButton.parentNode) {
-      this.cleanButton.parentNode.removeChild(this.cleanButton);
-    }
-    const autoBtn = document.getElementById('spiderweb-auto-btn');
-    if (autoBtn && autoBtn.parentNode) {
-      autoBtn.parentNode.removeChild(autoBtn);
-    }
-    const tooltip = document.getElementById('spiderweb-tooltip');
-    if (tooltip && tooltip.parentNode) {
-      tooltip.parentNode.removeChild(tooltip);
-    }
+  _completeScene() {
+    if (this.completionStarted) return;
+    this.completionStarted = true;
+    this._setButtonsHidden(true);
+    chrome.runtime.sendMessage({
+      type: 'MARK_CLEANED',
+      payload: { hostname: window.location.hostname }
+    }).catch(() => {});
+
+    setTimeout(() => {
+      this.removeCleanButtons();
+      if (this.overlay?.isActive) this.overlay.destroy();
+    }, 1350);
   }
 
-  addSparkle(x, y, isBurst = false) {
-    const colors = ['#FFD700', '#FFF8DC', '#FFFACD', '#F0E68C', '#FFE4B5', '#87CEEB'];
+  forceClean() {
+    const mode = this.settings.cleaningMode || 'both';
+    if (mode === 'manual') this.startManualCleaning();
+    else this.startAutoClean();
+  }
+
+  addSparkle(x, y, burst = false) {
+    const colors = ['#ffe9a4', '#fff7d6', '#d8f3ff', '#f4ca7c', '#fff'];
     this.sparkles.push({
       x,
       y,
-      size: isBurst ? 3 + Math.random() * 4 : 2 + Math.random() * 3,
-      life: 0.6 + Math.random() * 0.4,
+      size: burst ? 3 + Math.random() * 4 : 1.8 + Math.random() * 2.8,
+      life: burst ? 0.9 + Math.random() * 0.45 : 0.48 + Math.random() * 0.4,
       color: colors[Math.floor(Math.random() * colors.length)],
-      vx: (Math.random() - 0.5) * 60,
+      vx: (Math.random() - 0.5) * (burst ? 90 : 55),
       rotation: Math.random() * Math.PI * 2,
-      rotSpeed: (Math.random() - 0.5) * 8,
-      shape: Math.random() < 0.5 ? 'star' : 'circle'
+      rotationSpeed: (Math.random() - 0.5) * 7,
+      star: Math.random() > 0.38
     });
   }
 
-  render(ctx, w, h) {
-    // Draw sparkles
-    for (const s of this.sparkles) {
+  render(ctx) {
+    for (const sparkle of this.sparkles) {
       ctx.save();
-      ctx.translate(s.x, s.y);
-      ctx.rotate(s.rotation);
-      ctx.globalAlpha = Math.max(0, s.life);
-
-      if (s.shape === 'star') {
-        this.drawStar(ctx, 0, 0, s.size, s.color);
-      } else {
+      ctx.translate(sparkle.x, sparkle.y);
+      ctx.rotate(sparkle.rotation);
+      ctx.globalAlpha = Math.max(0, sparkle.life);
+      if (sparkle.star) this._drawStar(ctx, sparkle.size, sparkle.color);
+      else {
+        ctx.fillStyle = sparkle.color;
+        ctx.shadowColor = sparkle.color;
+        ctx.shadowBlur = sparkle.size * 4;
         ctx.beginPath();
-        ctx.arc(0, 0, s.size, 0, Math.PI * 2);
-        ctx.fillStyle = s.color;
+        ctx.arc(0, 0, sparkle.size, 0, Math.PI * 2);
         ctx.fill();
-
-        // Glow
-        ctx.shadowColor = s.color;
-        ctx.shadowBlur = s.size * 3;
-        ctx.fill();
-        ctx.shadowBlur = 0;
       }
-
-      ctx.globalAlpha = 1;
       ctx.restore();
     }
 
-    // Draw auto-clean duster
-    if (this.autoDuster.visible) {
-      this.drawAutoCleanDuster(ctx);
-    }
+    if (this.autoDuster.visible) this._drawAutoDuster(ctx);
   }
 
-  drawStar(ctx, x, y, size, color) {
-    const spikes = 4;
-    const outerRadius = size;
-    const innerRadius = size * 0.4;
-
+  _drawStar(ctx, size, color) {
     ctx.beginPath();
-    for (let i = 0; i < spikes * 2; i++) {
-      const radius = i % 2 === 0 ? outerRadius : innerRadius;
-      const angle = (i * Math.PI) / spikes - Math.PI / 2;
-      const px = x + Math.cos(angle) * radius;
-      const py = y + Math.sin(angle) * radius;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
+    for (let index = 0; index < 8; index++) {
+      const radius = index % 2 === 0 ? size : size * 0.38;
+      const angle = index * Math.PI / 4 - Math.PI / 2;
+      const x = Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius;
+      if (index === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
     }
     ctx.closePath();
     ctx.fillStyle = color;
-    ctx.fill();
-
-    // Glow
     ctx.shadowColor = color;
-    ctx.shadowBlur = size * 4;
+    ctx.shadowBlur = size * 3.6;
     ctx.fill();
-    ctx.shadowBlur = 0;
   }
 
-  drawAutoCleanDuster(ctx) {
+  _drawAutoDuster(ctx) {
     const { x, y } = this.autoDuster;
-
     ctx.save();
     ctx.translate(x, y);
-
-    // Duster handle
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(-20, -30);
-    ctx.strokeStyle = '#8B7355';
-    ctx.lineWidth = 4;
+    ctx.rotate(-0.18);
+    ctx.strokeStyle = '#76543a';
+    ctx.lineWidth = 5;
     ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-4, 5);
+    ctx.lineTo(-34, -34);
     ctx.stroke();
 
-    // Duster head
-    const gradient = ctx.createRadialGradient(0, 0, 5, 0, 0, 25);
-    gradient.addColorStop(0, '#DEB887');
-    gradient.addColorStop(0.5, '#D2B48C');
-    gradient.addColorStop(1, '#BC9A6C');
-
+    const feather = ctx.createRadialGradient(0, 0, 4, 0, 0, 29);
+    feather.addColorStop(0, '#f0c986');
+    feather.addColorStop(0.52, '#d9a860');
+    feather.addColorStop(1, '#9c6b3f');
+    ctx.fillStyle = feather;
     ctx.beginPath();
-    ctx.ellipse(0, 0, 25, 18, 0.3, 0, Math.PI * 2);
-    ctx.fillStyle = gradient;
+    ctx.ellipse(0, 0, 28, 18, 0.16, 0, Math.PI * 2);
     ctx.fill();
-
-    // Feather-like strokes
-    for (let i = 0; i < 8; i++) {
-      const angle = (i / 8) * Math.PI * 2;
-      const len = 15 + Math.random() * 10;
+    ctx.strokeStyle = 'rgba(255,236,192,.42)';
+    ctx.lineWidth = 1.2;
+    for (let index = 0; index < 9; index++) {
+      const angle = -1.1 + index * 0.27;
       ctx.beginPath();
-      ctx.moveTo(Math.cos(angle) * 8, Math.sin(angle) * 6);
-      ctx.lineTo(Math.cos(angle) * len, Math.sin(angle) * len * 0.7);
-      ctx.strokeStyle = `rgba(222, 184, 135, ${0.4 + Math.random() * 0.3})`;
-      ctx.lineWidth = 2;
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(angle) * 25, Math.sin(angle) * 15);
       ctx.stroke();
     }
-
     ctx.restore();
   }
 
-  getDusterCursor() {
-    const style = this.settings.dusterStyle || 'classic';
-    const cursors = {
-      classic: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-        <line x1="16" y1="16" x2="28" y2="28" stroke="%238B7355" stroke-width="3" stroke-linecap="round"/>
-        <ellipse cx="14" cy="14" rx="10" ry="7" fill="%23DEB887" transform="rotate(-20 14 14)"/>
-        <ellipse cx="14" cy="14" rx="7" ry="5" fill="%23D2B48C" transform="rotate(-20 14 14)"/>
-        <line x1="8" y1="10" x2="4" y2="6" stroke="%23BC9A6C" stroke-width="1.5" stroke-linecap="round"/>
-        <line x1="12" y1="8" x2="10" y2="4" stroke="%23BC9A6C" stroke-width="1.5" stroke-linecap="round"/>
-        <line x1="16" y1="9" x2="18" y2="5" stroke="%23BC9A6C" stroke-width="1.5" stroke-linecap="round"/>
-        <line x1="10" y1="14" x2="5" y2="14" stroke="%23BC9A6C" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>`,
-      feather: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-        <line x1="20" y1="20" x2="30" y2="30" stroke="%238B7355" stroke-width="2" stroke-linecap="round"/>
-        <path d="M18 18 Q10 14, 6 4 Q12 8, 18 18" fill="%23E8D5B7" stroke="%23BC9A6C" stroke-width="0.5"/>
-        <line x1="12" y1="11" x2="6" y2="4" stroke="%23D2B48C" stroke-width="0.8"/>
-        <path d="M18 18 Q14 12, 14 2 Q16 10, 18 18" fill="%23F0E4D0" stroke="%23BC9A6C" stroke-width="0.5"/>
-      </svg>`,
-      vacuum: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-        <rect x="8" y="2" width="16" height="6" rx="2" fill="%23666"/>
-        <rect x="10" y="8" width="12" height="4" fill="%23888"/>
-        <line x1="16" y1="12" x2="16" y2="28" stroke="%23999" stroke-width="4" stroke-linecap="round"/>
-        <circle cx="16" cy="28" r="3" fill="%23777"/>
-        <rect x="10" y="3" width="12" height="2" rx="1" fill="%23555"/>
-      </svg>`,
-      magic: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-        <line x1="16" y1="16" x2="28" y2="28" stroke="%234A3728" stroke-width="2.5" stroke-linecap="round"/>
-        <circle cx="14" cy="14" r="4" fill="%23FFD700"/>
-        <circle cx="14" cy="14" r="2" fill="%23FFF8DC"/>
-        <line x1="14" y1="7" x2="14" y2="4" stroke="%23FFD700" stroke-width="1" stroke-linecap="round"/>
-        <line x1="14" y1="21" x2="14" y2="24" stroke="%23FFD700" stroke-width="1" stroke-linecap="round"/>
-        <line x1="7" y1="14" x2="4" y2="14" stroke="%23FFD700" stroke-width="1" stroke-linecap="round"/>
-        <line x1="21" y1="14" x2="24" y2="14" stroke="%23FFD700" stroke-width="1" stroke-linecap="round"/>
-        <circle cx="8" cy="8" r="1" fill="%23FFD700" opacity="0.6"/>
-        <circle cx="20" cy="8" r="1" fill="%23FFD700" opacity="0.6"/>
-        <circle cx="8" cy="20" r="1" fill="%23FFD700" opacity="0.6"/>
-      </svg>`
-    };
-
-    return cursors[style] || cursors.classic;
+  _getDusterCursor() {
+    const cursor = '<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 42 42">' +
+      '<line x1="22" y1="22" x2="39" y2="39" stroke="%236f5039" stroke-width="4" stroke-linecap="round"/>' +
+      '<ellipse cx="18" cy="18" rx="14" ry="9" transform="rotate(-18 18 18)" fill="%23d9a860"/>' +
+      '<ellipse cx="17" cy="17" rx="10" ry="6.2" transform="rotate(-18 17 17)" fill="%23f0c986"/>' +
+      '<path d="M7 16l-4-4M9 12L7 7M14 10l1-5M20 11l4-5" stroke="%239c6b3f" stroke-width="1.3" stroke-linecap="round"/>' +
+      '</svg>';
+    return 'url("data:image/svg+xml,' + encodeURIComponent(cursor) + '") 17 17, crosshair';
   }
 
   showTooltip(text) {
     this.hideTooltip();
-    const tooltip = document.createElement('div');
-    tooltip.id = 'spiderweb-tooltip';
-    tooltip.textContent = text;
-    document.documentElement.appendChild(tooltip);
+    this.tooltip = document.createElement('div');
+    this.tooltip.id = 'spiderweb-tooltip';
+    this.tooltip.textContent = text;
+    document.documentElement.appendChild(this.tooltip);
   }
 
   hideTooltip() {
+    if (this.tooltip?.parentNode) this.tooltip.parentNode.removeChild(this.tooltip);
     const existing = document.getElementById('spiderweb-tooltip');
-    if (existing) existing.remove();
+    if (existing?.parentNode) existing.parentNode.removeChild(existing);
+    this.tooltip = null;
   }
 
-  // Called from content.js when FORCE_CLEAN message received
-  forceClean() {
-    const mode = this.settings.cleaningMode;
-    if (mode === 'auto' || mode === 'both') {
-      this.startAutoClean();
-    } else {
-      this.startManualCleaning();
+  removeCleanButtons() {
+    [this.cleanButton, this.autoButton].filter(Boolean).forEach(button => button.remove());
+    this.cleanButton = null;
+    this.autoButton = null;
+    this.hideTooltip();
+  }
+
+  destroy() {
+    this.isAutoCleaning = false;
+    this.isCleaningMode = false;
+    this.isPointerDown = false;
+    if (this.overlay?.container) {
+      this.overlay.container.removeEventListener('pointerdown', this._onPointerDown);
+      this.overlay.container.removeEventListener('pointermove', this._onPointerMove);
+      this.overlay.container.removeEventListener('pointerup', this._onPointerUp);
+      this.overlay.container.removeEventListener('pointercancel', this._onPointerUp);
+      this.overlay.disablePointerEvents();
     }
+    document.removeEventListener('keydown', this._onKeyDown);
+    this.removeCleanButtons();
   }
 }
 

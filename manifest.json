@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Spider Web & Dust",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Abandoned websites collect spider webs and dust — clean them with a satisfying duster animation!",
   "permissions": [
     "storage",
@@ -19,6 +19,7 @@
         "content/web-renderer.js",
         "content/dust-system.js",
         "content/sound-manager.js",
+        "content/spider-renderer.js",
         "content/duster-engine.js",
         "content/content.js"
       ],
@@ -42,7 +43,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["assets/cursors/*"],
+      "resources": ["assets/cursors/*", "assets/cobwebs/*"],
       "matches": ["<all_urls>"]
     }
   ]
