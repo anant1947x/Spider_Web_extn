@@ -22,6 +22,8 @@
   left: 0 !important;
   width: 100% !important;
   height: 100% !important;
+  display: block !important;
+  pointer-events: none !important;
 }
 
 /* ── Clean Button ─────────────────────────────────────── */
@@ -34,6 +36,13 @@
   cursor: pointer !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
   animation: spw-btn-entrance 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  font: inherit !important;
+  line-height: 1 !important;
 }
 
 #spiderweb-clean-btn {
@@ -86,6 +95,12 @@
 #spiderweb-clean-btn:active .spw-btn-inner,
 #spiderweb-auto-btn:active .spw-btn-inner {
   transform: translateY(0) scale(0.97) !important;
+}
+
+#spiderweb-clean-btn:focus-visible .spw-btn-inner,
+#spiderweb-auto-btn:focus-visible .spw-btn-inner {
+  outline: 2px solid #f8d58c !important;
+  outline-offset: 3px !important;
 }
 
 #spiderweb-clean-btn.spw-hidden,
@@ -152,4 +167,66 @@
 
 #spiderweb-dust-overlay.spw-cleaning-active {
   pointer-events: auto !important;
+  touch-action: none !important;
+}
+
+/* ── Crawling Spider ───────────────────────────────────── */
+
+.spw-spider {
+  isolation: isolate;
+  filter: saturate(1.04) contrast(1.12);
+  transition: opacity 180ms ease;
+}
+
+.spw-spider-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.spw-spider-leg {
+  fill: none;
+  stroke: #09090c;
+  stroke-width: 3.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: spw-spider-leg-step var(--spw-leg-rate, 560ms) cubic-bezier(.45, 0, .55, 1) infinite alternate;
+}
+
+.spw-leg-2,
+.spw-leg-4,
+.spw-leg-6,
+.spw-leg-8 {
+  animation-delay: -280ms;
+}
+
+.spw-leg-3,
+.spw-leg-7 {
+  animation-delay: -140ms;
+}
+
+.spw-spider-flee {
+  opacity: 0 !important;
+  transform: translate3d(0, -36px, 0) scale(0.7) !important;
+}
+
+@keyframes spw-spider-leg-step {
+  from { transform: rotate(-1.15deg) translateY(-0.45px); }
+  to { transform: rotate(1.15deg) translateY(0.45px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spw-spider-leg {
+    animation: none !important;
+  }
+
+  #spiderweb-clean-btn,
+  #spiderweb-auto-btn,
+  #spiderweb-tooltip {
+    animation: none !important;
+    transition: none !important;
+  }
 }

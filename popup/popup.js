@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (currentHostname) {
     const statusResponse = await chrome.runtime.sendMessage({
       type: 'GET_SITE_STATUS',
-      payload: { hostname: currentHostname }
+      payload: { hostname: currentHostname, tabId: currentTab?.id }
     });
     updateSiteStatus(statusResponse);
   }
@@ -188,11 +188,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ── Save Settings Helper ────────────────────────────────
 
   async function saveSettings(partial) {
-    currentSettings = { ...currentSettings, ...partial };
-    await chrome.runtime.sendMessage({
+    const response = await chrome.runtime.sendMessage({
       type: 'UPDATE_SETTINGS',
       payload: partial
     });
+    currentSettings = response?.settings || { ...currentSettings, ...partial };
+    applySettingsToUI(currentSettings);
   }
 
   // ── Slider Fill ─────────────────────────────────────────
