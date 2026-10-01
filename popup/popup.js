@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const statusIcon = document.getElementById('status-icon');
   const cleanNowBtn = document.getElementById('clean-now-btn');
   const openOptions = document.getElementById('open-options');
+  const spiderCountSlider = document.getElementById('spider-count-slider');
+  const spiderCountValue = document.getElementById('spider-count-value');
   const webDensityBtns = document.querySelectorAll('#web-density .density-btn');
   const dustIntensityBtns = document.querySelectorAll('#dust-intensity .density-btn');
 
@@ -62,6 +64,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     globalToggle.checked = settings.globalEnabled;
     daysSlider.value = settings.inactivityDays;
     daysValue.textContent = `${settings.inactivityDays}d`;
+    const spiderCount = Number(settings.spiderCount) || 0;
+    spiderCountSlider.value = spiderCount;
+    spiderCountValue.textContent = spiderCount === 0 ? 'Auto' : String(spiderCount);
 
     // Web density buttons
     webDensityBtns.forEach(btn => {
@@ -78,7 +83,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       siteToggle.checked = settings.enabledSites[currentHostname] !== false;
     }
 
-    updateSliderFill();
+    updateSliderFill(daysSlider);
+    updateSliderFill(spiderCountSlider);
   }
 
   function updateSiteStatus(response) {
@@ -129,7 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Days slider
   daysSlider.addEventListener('input', () => {
     daysValue.textContent = `${daysSlider.value}d`;
-    updateSliderFill();
+    updateSliderFill(daysSlider);
   });
 
   daysSlider.addEventListener('change', async () => {
@@ -152,6 +158,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       btn.classList.add('active');
       await saveSettings({ dustIntensity: btn.dataset.value });
     });
+  });
+
+  // Spider count: Auto follows web density; 1–6 overrides it explicitly.
+  spiderCountSlider.addEventListener('input', () => {
+    const count = Number(spiderCountSlider.value) || 0;
+    spiderCountValue.textContent = count === 0 ? 'Auto' : String(count);
+    updateSliderFill(spiderCountSlider);
+  });
+
+  spiderCountSlider.addEventListener('change', async () => {
+    await saveSettings({ spiderCount: parseInt(spiderCountSlider.value, 10) || 0 });
   });
 
   // Site toggle
@@ -198,12 +215,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ── Slider Fill ─────────────────────────────────────────
 
-  function updateSliderFill() {
-    const val = daysSlider.value;
-    const min = daysSlider.min;
-    const max = daysSlider.max;
+  function updateSliderFill(slider) {
+    const val = slider.value;
+    const min = slider.min;
+    const max = slider.max;
     const pct = ((val - min) / (max - min)) * 100;
-    daysSlider.style.background = `linear-gradient(to right, #a78bfa ${pct}%, #27272a ${pct}%)`;
+    slider.style.background = `linear-gradient(to right, #a78bfa ${pct}%, #27272a ${pct}%)`;
   }
 
   // ── Background Canvas Animation ────────────────────────

@@ -1,6 +1,6 @@
 # Spider Web & Dust
 
-An MV3 Chrome extension that turns neglected websites into small abandoned rooms: layered cobwebs, long drifting strands, dust motes, grain, vignette, and an optional crawling spider. Clean it manually with a duster or run an automatic sweep.
+An MV3 Chrome extension that turns neglected websites into small abandoned rooms: layered cobwebs, long drifting strands, dust motes, grain, vignette, and articulated crawling spiders. Clean it manually with a duster or run an automatic sweep.
 
 ## Load it locally
 
@@ -20,6 +20,7 @@ After edits, press the extension's reload button on chrome://extensions, then re
 3. Choose a web density:
    - **Low**: multiple anchored webs plus single/dual cross-page strands.
    - **Medium / High / Extreme**: progressively more edge clusters, drapes, long strands, dust, and spiders.
+   - Spider count defaults to **Auto** (1 / 2 / 3 / 4 crawlers from Low through Extreme); use the popup or Options page to pin it to 1–6.
 4. Use **Brush** to clean manually (hold/drag, Esc exits), or **Sweep** for a complete automatic pass.
 
 The first stale visit is shown using the previous visit timestamp, then the current visit is recorded. This lets a site become dusty only after it has actually been away long enough while still allowing the scene to remain cleanable during that page view.
@@ -27,5 +28,6 @@ The first stale visit is shown using the previous visit timestamp, then the curr
 ## Design choices
 
 - Cobwebs use the supplied alpha-transparent images with uniform tint, highlights, and shadows. Black in image previews is transparency, not a baked background.
-- Long single/dual threads, grain, vignette, dust, sparkles, and the spider are rendered procedurally for sharp scaling and reliable cleaning.
-- The spider is a lightweight vector animation rather than a looping transparent video, which keeps the extension smaller, more responsive, and compatible with reduced-motion preferences.
+- Every web scene uses the same extension-wide geometry and palette until a setting changes; it does not reshuffle because the user opens a different website.
+- Long single/dual threads, grain, vignette, dust, sparkles, and spiders are rendered procedurally for sharp scaling and reliable cleaning. Edge anchors stay attached while a subtle scroll impulse flexes the silk.
+- Each spider is a lightweight original vector animation with independently articulated legs, a glossy layered body, idle motion, varied crawl routes, and a smooth flee response. This is sharper and more responsive than a looping transparent video, and respects reduced-motion preferences.

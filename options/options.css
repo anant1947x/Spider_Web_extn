@@ -293,6 +293,15 @@ input:checked + .toggle-slider::before {
   box-shadow: 0 0 14px rgba(167, 139, 250, 0.6);
 }
 
+.slider:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.slider:disabled::-webkit-slider-thumb {
+  cursor: not-allowed;
+}
+
 .slider-value {
   font-size: 13px;
   font-weight: 600;

@@ -11,6 +11,7 @@ class WebRenderer {
     this.width = 0;
     this.height = 0;
     this.time = 0;
+    this.scrollMotion = 0;
     this.reducedMotion = window.matchMedia &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -315,6 +316,30 @@ class WebRenderer {
       'transform-origin:center center'
     ].join(';');
 
+    // Guard the artwork against aggressive page-wide img/reset rules while
+    // keeping it fully non-interactive. Dynamic transform/opacity writes use
+    // the same priority below.
+    const protectedStyles = {
+      position: 'fixed',
+      left: options.x.toFixed(1) + 'px',
+      top: options.y.toFixed(1) + 'px',
+      width: options.width.toFixed(1) + 'px',
+      height: options.height.toFixed(1) + 'px',
+      'object-fit': 'contain',
+      display: 'block',
+      'max-width': 'none',
+      'max-height': 'none',
+      'pointer-events': 'none',
+      'z-index': '2147483647',
+      'mix-blend-mode': darkSite ? 'screen' : 'multiply',
+      filter: tint + ' drop-shadow(3px 5px 7px ' + shadow + ') drop-shadow(-0.5px -0.5px 0.8px ' + highlight + ')',
+      opacity: '0',
+      transform: options.transform || 'none'
+    };
+    Object.entries(protectedStyles).forEach(([property, value]) => {
+      element.style.setProperty(property, value, 'important');
+    });
+
     document.documentElement.appendChild(element);
     const item = {
       type: 'asset',
@@ -323,15 +348,20 @@ class WebRenderer {
       fade: 1,
       baseTransform: options.transform || 'none',
       phase: options.phase,
+      scrollWeight: 0.42 + Math.abs(Math.sin(options.phase || 0)) * 0.58,
       cleanStrength: 0.3
     };
     this.webs.push(item);
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        if (element.isConnected) element.style.opacity = String(item.opacity);
+        if (element.isConnected) element.style.setProperty('opacity', String(item.opacity), 'important');
       });
     });
+  }
+
+  setScrollMotion(impulse) {
+    this.scrollMotion = Math.max(-18, Math.min(18, Number(impulse) || 0));
   }
 
   update(delta) {
@@ -341,9 +371,13 @@ class WebRenderer {
       if (item.type !== 'asset' || !item.element || this.reducedMotion) continue;
       const x = Math.sin(this.time * 0.24 + item.phase) * 0.7;
       const y = Math.cos(this.time * 0.18 + item.phase) * 0.42;
+      const scrollY = this.scrollMotion * 0.1 * item.scrollWeight;
+      const scrollX = this.scrollMotion * 0.018 * Math.sin(item.phase);
       const base = item.baseTransform === 'none' ? '' : ' ' + item.baseTransform;
       // Translate first so a mirror never reverses the tiny physical sway.
-      item.element.style.transform = 'translate3d(' + x.toFixed(2) + 'px,' + y.toFixed(2) + 'px,0)' + base;
+      item.element.style.setProperty('transform', 'translate3d(' +
+        (x + scrollX).toFixed(2) + 'px,' +
+        (y + scrollY).toFixed(2) + 'px,0)' + base, 'important');
     }
   }
 
@@ -359,24 +393,25 @@ class WebRenderer {
     for (const item of this.webs) {
       if (item.type !== 'strand' || item.fade <= 0) continue;
       const sway = this.reducedMotion ? 0 : Math.sin(this.time * 0.32 + item.phase) * 0.85;
+      const scrollBend = this.reducedMotion ? 0 : this.scrollMotion * (0.09 + Math.abs(Math.sin(item.phase)) * 0.045);
       const alpha = item.opacity * item.fade;
       const shadowAlpha = alpha * (darkSite ? 0.46 : 0.72);
 
-      this._strokeStrand(ctx, item, sway + 1.1, 1.45, 'rgba(10, 7, 5, ' + shadowAlpha + ')', item.thickness * 2.05);
-      this._strokeStrand(ctx, item, sway, 0, 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + alpha + ')', item.thickness);
-      this._strokeStrand(ctx, item, sway - 0.35, -0.28, 'rgba(255, 248, 233, ' + (alpha * 0.38) + ')', item.thickness * 0.42);
+      this._strokeStrand(ctx, item, sway + 1.1, 1.45, 'rgba(10, 7, 5, ' + shadowAlpha + ')', item.thickness * 2.05, scrollBend);
+      this._strokeStrand(ctx, item, sway, 0, 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + alpha + ')', item.thickness, scrollBend);
+      this._strokeStrand(ctx, item, sway - 0.35, -0.28, 'rgba(255, 248, 233, ' + (alpha * 0.38) + ')', item.thickness * 0.42, scrollBend);
     }
 
     ctx.restore();
   }
 
-  _strokeStrand(ctx, item, sway, offsetY, color, width) {
+  _strokeStrand(ctx, item, sway, offsetY, color, width, scrollBend = 0) {
     const drawPath = path => {
       ctx.beginPath();
       ctx.moveTo(path.start.x, path.start.y + offsetY);
       ctx.quadraticCurveTo(
-        path.control.x + sway,
-        path.control.y + sway * 0.5 + offsetY,
+          path.control.x + sway + scrollBend * 0.18,
+          path.control.y + sway * 0.5 + scrollBend + offsetY,
         path.end.x,
         path.end.y + offsetY
       );
@@ -399,7 +434,7 @@ class WebRenderer {
       if (!touched) continue;
       item.fade = Math.max(0, item.fade - item.cleanStrength);
 
-      if (item.element) item.element.style.opacity = String(item.opacity * item.fade);
+      if (item.element) item.element.style.setProperty('opacity', String(item.opacity * item.fade), 'important');
       if (item.fade <= 0.03) {
         if (item.element) item.element.remove();
         this.webs.splice(index, 1);
