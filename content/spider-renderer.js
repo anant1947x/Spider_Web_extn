@@ -1,8 +1,8 @@
 /* ============================================================
-   Spider Web & Dust — Crawling Spider Renderer
-   Original vector spiders with individually articulated legs.
-   The renderer stays sharp at every viewport size and avoids
-   a video/image asset that would look soft or block page input.
+   Spider Web & Dust — Natural Spider Renderer
+   Each crawler is a compact hi-DPI canvas rather than a collection of SVG
+   paths. This shields the art from arbitrary site CSS and lets every foot
+   use a planted-step gait rather than making the spider visually drift.
    ============================================================ */
 
 class SpiderRenderer {
@@ -12,7 +12,10 @@ class SpiderRenderer {
     this.width = 0;
     this.height = 0;
     this.scrollMotion = 0;
+    this.sceneTime = 0;
     this._id = 0;
+    // Do not include hostname: one extension setting has one visual identity
+    // regardless of the page the user happens to visit.
     this._baseSeed = this._hashString(this._sceneKey());
     this.reducedMotion = window.matchMedia &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -20,7 +23,7 @@ class SpiderRenderer {
 
   _sceneKey() {
     return [
-      'spw-global-spider-layout-v4',
+      'spw-natural-spider-layout-v5',
       this.settings.webDensity || 'medium',
       this.settings.dustIntensity || 'medium',
       Number(this.settings.spiderCount) || 0
@@ -45,14 +48,28 @@ class SpiderRenderer {
     };
   }
 
+  _clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  _lerp(a, b, amount) {
+    return a + (b - a) * amount;
+  }
+
+  _fract(value) {
+    return value - Math.floor(value);
+  }
+
   onResize(width, height) {
     this.width = width;
     this.height = height;
     this.generateSpiders();
   }
 
+  // Webs flex a little during scroll. Spiders stay planted: moving them with
+  // that impulse was a major reason the old treatment read as floating.
   setScrollMotion(impulse) {
-    this.scrollMotion = Math.max(-18, Math.min(18, Number(impulse) || 0));
+    this.scrollMotion = this._clamp(Number(impulse) || 0, -18, 18);
   }
 
   getDensityConfig() {
@@ -67,8 +84,7 @@ class SpiderRenderer {
       high: 3,
       extreme: 4
     }[this.settings.webDensity] || 2;
-    const ageBoost = Math.max(0, Math.min(1, Number(this.settings._ageIntensity) || 0));
-
+    const ageBoost = this._clamp(Number(this.settings._ageIntensity) || 0, 0, 1);
     return Math.min(6, densityCount + (ageBoost > 0.82 && this.settings.webDensity === 'extreme' ? 1 : 0));
   }
 
@@ -78,7 +94,6 @@ class SpiderRenderer {
 
     const rng = this._mulberry32(this._baseSeed);
     const count = this.getDensityConfig();
-
     for (let index = 0; index < count; index++) {
       const spider = this._createSpider(rng, index);
       this.spiders.push(spider);
@@ -87,59 +102,63 @@ class SpiderRenderer {
   }
 
   _createSpider(rng, index) {
-    const id = 'spw-spider-' + (++this._id);
-    const viewportScale = Math.min(this.width, this.height) * 0.108;
-    const baseSize = Math.max(58, Math.min(118, viewportScale));
-    const size = Math.max(58, Math.min(122, baseSize * (0.86 + rng() * 0.28)));
-    const height = size * (150 / 220);
+    const viewportScale = Math.min(this.width, this.height) * 0.129;
+    // Larger than the prior SVG, yet still a decorative foreground detail.
+    const baseSize = this._clamp(viewportScale, 82, 136);
+    const size = Math.round(this._clamp(baseSize * (0.9 + rng() * 0.2), 80, 142));
+    const height = Math.round(size * 0.76);
     const element = document.createElement('div');
-    const legs = this._getLegLayout();
+    const canvas = document.createElement('canvas');
+    const shadow = element.attachShadow({ mode: 'closed' });
 
     element.className = 'spw-spider';
     element.setAttribute('aria-hidden', 'true');
     element.dataset.spwSpider = 'true';
     element.style.cssText = [
-      'position:fixed',
-      'top:0',
-      'left:0',
-      'width:' + size.toFixed(1) + 'px',
-      'height:' + height.toFixed(1) + 'px',
-      'z-index:2147483647',
-      'pointer-events:none',
-      'opacity:0',
-      'will-change:transform,opacity',
-      'transform-origin:center center',
-      'contain:layout style paint'
+      'position:fixed', 'top:0', 'left:0',
+      'width:' + size + 'px', 'height:' + height + 'px',
+      'z-index:2147483647', 'pointer-events:none', 'opacity:0', 'display:block',
+      'will-change:transform,opacity', 'transform-origin:center center',
+      'contain:layout style paint', 'box-sizing:content-box', 'overflow:visible',
+      'border:0', 'margin:0', 'padding:0', 'background:transparent'
     ].join(';');
     [
-      ['position', 'fixed'],
-      ['top', '0'],
-      ['left', '0'],
-      ['width', size.toFixed(1) + 'px'],
-      ['height', height.toFixed(1) + 'px'],
-      ['z-index', '2147483647'],
-      ['pointer-events', 'none'],
-      ['max-width', 'none'],
-      ['max-height', 'none'],
-      ['opacity', '0']
+      ['position', 'fixed'], ['top', '0'], ['left', '0'],
+      ['width', size + 'px'], ['height', height + 'px'],
+      ['z-index', '2147483647'], ['pointer-events', 'none'], ['display', 'block'],
+      ['visibility', 'visible'], ['max-width', 'none'], ['max-height', 'none'],
+      ['min-width', '0'], ['min-height', '0'], ['box-sizing', 'content-box'],
+      ['border', '0'], ['margin', '0'], ['padding', '0'], ['background', 'transparent'],
+      ['clip-path', 'none'], ['filter', 'none'], ['mix-blend-mode', 'normal'],
+      ['transform-origin', 'center center'], ['transition', 'opacity 120ms linear'],
+      ['animation', 'none'], ['opacity', '0']
     ].forEach(([property, value]) => element.style.setProperty(property, value, 'important'));
 
-    element.innerHTML = this._buildSpiderMarkup(id, legs);
-
-    const legNodes = legs.map((leg, legIndex) => ({
-      shadow: element.querySelector('[data-spw-leg-shadow="' + legIndex + '"]'),
-      main: element.querySelector('[data-spw-leg-main="' + legIndex + '"]'),
-      highlight: element.querySelector('[data-spw-leg-highlight="' + legIndex + '"]'),
-      knee: element.querySelector('[data-spw-leg-knee="' + legIndex + '"]'),
-      ankle: element.querySelector('[data-spw-leg-ankle="' + legIndex + '"]')
-    }));
+    canvas.className = 'spw-spider-art spw-spider-canvas';
+    canvas.setAttribute('aria-hidden', 'true');
+    canvas.style.cssText = [
+      'display:block', 'width:100%', 'height:100%', 'max-width:none', 'max-height:none',
+      'border:0', 'margin:0', 'padding:0', 'background:transparent', 'pointer-events:none',
+      'box-sizing:content-box', 'image-rendering:auto', 'transform-origin:center center',
+      'will-change:transform,opacity'
+    ].join(';');
+    [
+      ['display', 'block'], ['width', '100%'], ['height', '100%'],
+      ['max-width', 'none'], ['max-height', 'none'], ['border', '0'],
+      ['margin', '0'], ['padding', '0'], ['background', 'transparent'],
+      ['pointer-events', 'none'], ['box-sizing', 'content-box']
+    ].forEach(([property, value]) => canvas.style.setProperty(property, value, 'important'));
+    shadow.append(canvas);
 
     const spider = {
       element,
+      canvas,
+      ctx: null,
       size,
       height,
-      legs,
-      legNodes,
+      pixelRatio: 1,
+      legs: this._getLegLayout(),
+      specimen: this._makeSpecimen(rng),
       routeIndex: index * 2,
       routeRng: this._mulberry32(this._baseSeed + (index + 1) * 40503),
       path: null,
@@ -152,108 +171,76 @@ class SpiderRenderer {
       crawlOutDuration: 0,
       exitDuration: 0,
       restDuration: 0,
-      stepRate: 5.9 + rng() * 1.5,
       legOffset: rng() * Math.PI * 2,
-      scrollWeight: 0.58 + rng() * 0.42,
-      lastLegFrame: -Infinity,
+      gaitTime: rng(),
+      cadence: 0.38,
+      lastDrawFrame: -Infinity,
       fleeing: false
     };
 
-    this._configureCycle(spider, performance.now(), true);
-    // Stagger each crawler so a newly opened stale site already feels alive.
-    spider.cycleStartedAt -= spider.cycleDuration * 1000 * (0.14 + rng() * 0.7);
+    this._sizeCanvas(spider);
+    this._configureCycle(spider, this.sceneTime, true);
+    // A page should feel alive on first load, not have every spider enter
+    // together from the same edge.
+    spider.cycleStartedAt -= spider.cycleDuration * 1000 * (0.12 + rng() * 0.72);
     return spider;
   }
 
+  _sizeCanvas(spider) {
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    spider.pixelRatio = ratio;
+    spider.canvas.width = Math.max(1, Math.round(spider.size * ratio));
+    spider.canvas.height = Math.max(1, Math.round(spider.height * ratio));
+    spider.ctx = spider.canvas.getContext('2d', { alpha: true, desynchronized: true });
+  }
+
+  _makeSpecimen(rng) {
+    const hairs = [];
+    for (let index = 0; index < 38; index++) {
+      hairs.push({
+        angle: rng() * Math.PI * 2,
+        reach: 0.32 + rng() * 0.62,
+        length: 1.2 + rng() * 3.1,
+        opacity: 0.09 + rng() * 0.16
+      });
+    }
+    return {
+      warmth: 0.82 + rng() * 0.16,
+      hairs,
+      eyeTint: 0.2 + rng() * 0.12
+    };
+  }
+
   _getLegLayout() {
-    // Body faces right in its native viewBox. Each leg has three physical
-    // segments, then receives a slightly different gait in _legPose().
+    // Body faces right in native canvas coordinates. All eight legs originate
+    // from the cephalothorax area, not the abdomen, for a natural silhouette.
     return [
-      { start: { x: 116, y: 57 }, knee: { x: 84, y: 31 }, ankle: { x: 44, y: 20 }, tip: { x: 17, y: 12 }, phase: 0.2, stride: 5.2, lift: 4.0 },
-      { start: { x: 109, y: 65 }, knee: { x: 73, y: 51 }, ankle: { x: 38, y: 51 }, tip: { x: 15, y: 59 }, phase: Math.PI + 0.8, stride: 4.6, lift: 3.4 },
-      { start: { x: 109, y: 81 }, knee: { x: 72, y: 86 }, ankle: { x: 41, y: 100 }, tip: { x: 17, y: 113 }, phase: 1.1, stride: 5.0, lift: 3.8 },
-      { start: { x: 116, y: 94 }, knee: { x: 87, y: 112 }, ankle: { x: 65, y: 132 }, tip: { x: 55, y: 146 }, phase: Math.PI + 1.55, stride: 4.1, lift: 3.2 },
-      { start: { x: 146, y: 57 }, knee: { x: 169, y: 31 }, ankle: { x: 194, y: 20 }, tip: { x: 211, y: 13 }, phase: Math.PI + 0.25, stride: 5.1, lift: 4.0 },
-      { start: { x: 153, y: 65 }, knee: { x: 185, y: 52 }, ankle: { x: 210, y: 54 }, tip: { x: 218, y: 65 }, phase: 0.75, stride: 4.5, lift: 3.4 },
-      { start: { x: 153, y: 81 }, knee: { x: 185, y: 87 }, ankle: { x: 211, y: 102 }, tip: { x: 218, y: 117 }, phase: Math.PI + 1.18, stride: 5.0, lift: 3.8 },
-      { start: { x: 146, y: 94 }, knee: { x: 168, y: 113 }, ankle: { x: 184, y: 133 }, tip: { x: 192, y: 146 }, phase: 1.72, stride: 4.1, lift: 3.2 }
+      { side: -1, shoulder: { x: 15, y: -7 }, knee: { x: 31, y: -21 }, ankle: { x: 48, y: -25 }, foot: { x: 58, y: -30 }, phase: 0.00, stride: 8.2, lift: 4.4, width: 0.94 },
+      { side: -1, shoulder: { x: 9, y: -11 }, knee: { x: 10, y: -31 }, ankle: { x: -7, y: -39 }, foot: { x: -24, y: -42 }, phase: 0.50, stride: 8.7, lift: 4.9, width: 1.00 },
+      { side: -1, shoulder: { x: -5, y: -13 }, knee: { x: -25, y: -30 }, ankle: { x: -42, y: -37 }, foot: { x: -55, y: -40 }, phase: 0.08, stride: 7.7, lift: 4.2, width: 1.02 },
+      { side: -1, shoulder: { x: -17, y: -8 }, knee: { x: -37, y: -17 }, ankle: { x: -51, y: -25 }, foot: { x: -59, y: -31 }, phase: 0.58, stride: 6.9, lift: 3.8, width: 0.89 },
+      { side: 1, shoulder: { x: 15, y: 7 }, knee: { x: 31, y: 21 }, ankle: { x: 48, y: 25 }, foot: { x: 58, y: 30 }, phase: 0.50, stride: 8.2, lift: 4.4, width: 0.94 },
+      { side: 1, shoulder: { x: 9, y: 11 }, knee: { x: 10, y: 31 }, ankle: { x: -7, y: 39 }, foot: { x: -24, y: 42 }, phase: 0.00, stride: 8.7, lift: 4.9, width: 1.00 },
+      { side: 1, shoulder: { x: -5, y: 13 }, knee: { x: -25, y: 30 }, ankle: { x: -42, y: 37 }, foot: { x: -55, y: 40 }, phase: 0.58, stride: 7.7, lift: 4.2, width: 1.02 },
+      { side: 1, shoulder: { x: -17, y: 8 }, knee: { x: -37, y: 17 }, ankle: { x: -51, y: 25 }, foot: { x: -59, y: 31 }, phase: 0.08, stride: 6.9, lift: 3.8, width: 0.89 }
     ];
   }
 
-  _buildSpiderMarkup(id, legs) {
-    const legMarkup = legs.map((leg, index) => {
-      const pose = this._legPose(leg, 0, 0.14);
-      const d = this._legPathD(pose);
-      return [
-        '<path class="spw-spider-leg-shadow" data-spw-leg-shadow="' + index + '" d="' + d + '"/>',
-        '<path class="spw-spider-leg-main" data-spw-leg-main="' + index + '" d="' + d + '"/>',
-        '<path class="spw-spider-leg-highlight" data-spw-leg-highlight="' + index + '" d="' + d + '"/>',
-        '<circle class="spw-spider-joint" data-spw-leg-knee="' + index + '" cx="' + pose.knee.x.toFixed(1) + '" cy="' + pose.knee.y.toFixed(1) + '" r="2.15"/>',
-        '<circle class="spw-spider-joint spw-spider-joint-small" data-spw-leg-ankle="' + index + '" cx="' + pose.ankle.x.toFixed(1) + '" cy="' + pose.ankle.y.toFixed(1) + '" r="1.7"/>'
-      ].join('');
-    }).join('');
-
-    return [
-      '<svg class="spw-spider-art" viewBox="0 0 220 150" aria-hidden="true" focusable="false">',
-      '<defs>',
-      '<radialGradient id="' + id + '-abdomen" cx="29%" cy="24%" r="78%">',
-      '<stop offset="0%" stop-color="#827179"/>',
-      '<stop offset="14%" stop-color="#4a3a42"/>',
-      '<stop offset="43%" stop-color="#20191f"/>',
-      '<stop offset="78%" stop-color="#08070a"/>',
-      '<stop offset="100%" stop-color="#020203"/>',
-      '</radialGradient>',
-      '<radialGradient id="' + id + '-thorax" cx="31%" cy="22%" r="82%">',
-      '<stop offset="0%" stop-color="#726069"/>',
-      '<stop offset="17%" stop-color="#352b31"/>',
-      '<stop offset="57%" stop-color="#120f13"/>',
-      '<stop offset="100%" stop-color="#020203"/>',
-      '</radialGradient>',
-      '<linearGradient id="' + id + '-leg" x1="0%" y1="0%" x2="100%" y2="100%">',
-      '<stop offset="0%" stop-color="#5c5056"/>',
-      '<stop offset="18%" stop-color="#211b20"/>',
-      '<stop offset="68%" stop-color="#08080a"/>',
-      '<stop offset="100%" stop-color="#010102"/>',
-      '</linearGradient>',
-      '<radialGradient id="' + id + '-mark" cx="38%" cy="22%" r="84%">',
-      '<stop offset="0%" stop-color="#d93632"/>',
-      '<stop offset="48%" stop-color="#7e0b13"/>',
-      '<stop offset="100%" stop-color="#340307"/>',
-      '</radialGradient>',
-      '<filter id="' + id + '-shadow" x="-25%" y="-35%" width="170%" height="200%">',
-      '<feDropShadow dx="2.6" dy="4.3" stdDeviation="2.7" flood-color="#000000" flood-opacity="0.78"/>',
-      '<feDropShadow dx="-0.45" dy="-0.65" stdDeviation="0.55" flood-color="#eadde1" flood-opacity="0.19"/>',
-      '</filter>',
-      '</defs>',
-      '<g filter="url(#' + id + '-shadow)">',
-      '<g class="spw-spider-legs">', legMarkup, '</g>',
-      '<ellipse class="spw-spider-abdomen" cx="106" cy="76" rx="39" ry="33" fill="url(#' + id + '-abdomen)" stroke="#a8939c" stroke-opacity="0.19" stroke-width="1.05"/>',
-      '<ellipse cx="149" cy="76" rx="24" ry="21.5" fill="url(#' + id + '-thorax)" stroke="#95818a" stroke-opacity="0.18" stroke-width="0.8"/>',
-      '<path d="M76 59 C88 45 111 42 132 52 C114 48 92 51 80 66 Z" fill="#f8e5eb" opacity="0.12"/>',
-      '<path d="M86 55 C95 46 111 46 122 55 C116 56 111 60 106 67 C101 60 95 57 86 55 Z" fill="url(#' + id + '-mark)" opacity="0.72"/>',
-      '<path d="M101 69 C107 64 116 67 120 75 C115 75 111 79 107 86 C105 80 101 75 96 72 Z" fill="url(#' + id + '-mark)" opacity="0.56"/>',
-      '<path d="M151 58 C166 59 173 67 173 76 C173 85 167 93 154 95 C160 85 160 67 151 58 Z" fill="#050406" opacity="0.78"/>',
-      '<path d="M169 74 L180 69 L174 78 L181 83 L168 81 Z" fill="#08070a" opacity="0.9"/>',
-      '<path d="M142 60 C153 53 164 60 168 68" fill="none" stroke="#dcc9d0" stroke-opacity="0.16" stroke-width="1.05" stroke-linecap="round"/>',
-      '</g>',
-      '</svg>'
-    ].join('');
-  }
-
   _configureCycle(spider, startedAt, initial) {
-    if (!initial) {
-      spider.routeIndex += 1 + Math.floor(spider.routeRng() * 3);
-    }
+    if (!initial) spider.routeIndex += 1 + Math.floor(spider.routeRng() * 3);
     spider.path = this._makePath(spider.routeIndex);
     spider.pauseAt = 0.36 + spider.routeRng() * 0.31;
+    spider.pathLength = this._pathLength(spider.path);
     spider.entryDuration = 0.7 + spider.routeRng() * 0.42;
-    spider.crawlInDuration = 5.1 + spider.routeRng() * 3.7;
-    spider.pauseDuration = 1.5 + spider.routeRng() * 2.5;
-    spider.crawlOutDuration = 3.5 + spider.routeRng() * 3.0;
+    // A spider travels at roughly 22–30 screen pixels per second. Earlier
+    // routes crossed a desktop viewport in five seconds, so no leg animation
+    // could plausibly keep up and the body looked like it was gliding.
+    const crawlSpeed = 22 + spider.routeRng() * 8;
+    spider.crawlInDuration = Math.max(7.5, spider.pathLength * spider.pauseAt / crawlSpeed);
+    spider.pauseDuration = 1.6 + spider.routeRng() * 2.7;
+    spider.crawlOutDuration = Math.max(6.5, spider.pathLength * (1 - spider.pauseAt) / crawlSpeed);
     spider.exitDuration = 0.65 + spider.routeRng() * 0.38;
-    // Keep density perceptible: a spider only disappears briefly before its
-    // next route, rather than leaving an Extreme scene unexpectedly sparse.
-    spider.restDuration = 0.45 + spider.routeRng() * 1.15;
+    spider.restDuration = 0.5 + spider.routeRng() * 1.2;
     spider.cycleDuration = spider.entryDuration + spider.crawlInDuration + spider.pauseDuration +
       spider.crawlOutDuration + spider.exitDuration + spider.restDuration;
     spider.cycleStartedAt = startedAt;
@@ -262,24 +249,21 @@ class SpiderRenderer {
   _makePath(index) {
     const width = this.width;
     const height = this.height;
-    // Shared structural routes make every crawl feel tied to the long
-    // wall-to-wall silk, while different routes prevent a repeating loop.
+    // Routes intentionally begin/end at a wall boundary or corner. This keeps
+    // the spider visually connected to the edge silk instead of appearing as
+    // a random sticker placed over page text.
     const paths = [
       { start: { x: 0, y: 0 }, control: { x: width * 0.34, y: height * 0.08 }, end: { x: width, y: height * 0.27 } },
-      { start: { x: width, y: 0 }, control: { x: width * 0.62, y: height * 0.13 }, end: { x: 0, y: height * 0.31 } },
-      { start: { x: 0, y: height }, control: { x: width * 0.14, y: height * 0.68 }, end: { x: width * 0.23, y: 0 } },
+      { start: { x: width, y: 0 }, control: { x: width * 0.63, y: height * 0.13 }, end: { x: 0, y: height * 0.31 } },
+      { start: { x: 0, y: height }, control: { x: width * 0.16, y: height * 0.69 }, end: { x: width * 0.24, y: 0 } },
       { start: { x: width, y: height }, control: { x: width * 0.86, y: height * 0.64 }, end: { x: width * 0.77, y: 0 } },
-      { start: { x: 0, y: height * 0.64 }, control: { x: width * 0.43, y: height * 0.72 }, end: { x: width, y: height * 0.77 } },
-      { start: { x: width, y: height * 0.47 }, control: { x: width * 0.78, y: height * 0.72 }, end: { x: width * 0.67, y: height } },
-      { start: { x: 0, y: height * 0.25 }, control: { x: width * 0.2, y: height * 0.52 }, end: { x: width * 0.34, y: height } },
+      { start: { x: 0, y: height * 0.64 }, control: { x: width * 0.41, y: height * 0.71 }, end: { x: width, y: height * 0.77 } },
+      { start: { x: width, y: height * 0.47 }, control: { x: width * 0.79, y: height * 0.72 }, end: { x: width * 0.67, y: height } },
+      { start: { x: 0, y: height * 0.25 }, control: { x: width * 0.21, y: height * 0.52 }, end: { x: width * 0.34, y: height } },
       { start: { x: width * 0.45, y: 0 }, control: { x: width * 0.57, y: height * 0.48 }, end: { x: width * 0.79, y: height } }
     ];
     const path = paths[index % paths.length];
-    return {
-      start: { ...path.start },
-      control: { ...path.control },
-      end: { ...path.end }
-    };
+    return { start: { ...path.start }, control: { ...path.control }, end: { ...path.end } };
   }
 
   _cycleState(spider, currentTime) {
@@ -291,58 +275,75 @@ class SpiderRenderer {
     let cursor = spider.entryDuration;
     if (elapsed < cursor) {
       const amount = this._easeOutCubic(elapsed / spider.entryDuration);
-      return { visible: true, progress: 0.004, opacity: amount * 0.94, activity: 0.42, scale: 0.9 + amount * 0.1 };
+      return { visible: true, progress: 0.004, opacity: amount * 0.94, scale: 0.9 + amount * 0.1, walking: false };
     }
 
     cursor += spider.crawlInDuration;
     if (elapsed < cursor) {
-      const amount = this._easeInOutCubic((elapsed - cursor + spider.crawlInDuration) / spider.crawlInDuration);
-      return { visible: true, progress: amount * spider.pauseAt, opacity: 0.96, activity: 1, scale: 1, walking: true };
+      const phase = (elapsed - cursor + spider.crawlInDuration) / spider.crawlInDuration;
+      const amount = this._easeInOutCubic(phase);
+      return {
+        visible: true,
+        progress: amount * spider.pauseAt,
+        opacity: 0.96,
+        scale: 1,
+        walking: true,
+        travelFraction: spider.pauseAt,
+        travelDuration: spider.crawlInDuration,
+        gaitFactor: Math.max(0.28, this._easeInOutCubicVelocity(phase) / 3)
+      };
     }
 
     cursor += spider.pauseDuration;
     if (elapsed < cursor) {
-      const idleTime = elapsed - cursor + spider.pauseDuration;
-      const drift = Math.sin(idleTime * 1.6 + spider.legOffset) * 0.0022;
-      return { visible: true, progress: Math.max(0, Math.min(1, spider.pauseAt + drift)), opacity: 0.96, activity: 0.16, scale: 1.006 };
+      // No whole-element sinusoidal "idle" movement: only forelegs twitch.
+      return { visible: true, progress: spider.pauseAt, opacity: 0.96, scale: 1, walking: false };
     }
 
     cursor += spider.crawlOutDuration;
     if (elapsed < cursor) {
-      const amount = this._easeInOutCubic((elapsed - cursor + spider.crawlOutDuration) / spider.crawlOutDuration);
+      const phase = (elapsed - cursor + spider.crawlOutDuration) / spider.crawlOutDuration;
+      const amount = this._easeInOutCubic(phase);
       return {
         visible: true,
         progress: spider.pauseAt + (1 - spider.pauseAt) * amount,
         opacity: 0.96,
-        activity: 1,
         scale: 1,
-        walking: true
+        walking: true,
+        travelFraction: 1 - spider.pauseAt,
+        travelDuration: spider.crawlOutDuration,
+        gaitFactor: Math.max(0.28, this._easeInOutCubicVelocity(phase) / 3)
       };
     }
 
     cursor += spider.exitDuration;
     if (elapsed < cursor) {
       const amount = (elapsed - cursor + spider.exitDuration) / spider.exitDuration;
-      return { visible: true, progress: 0.997, opacity: (1 - this._easeInCubic(amount)) * 0.96, activity: 0.56, scale: 1 - amount * 0.11 };
+      return { visible: true, progress: 0.997, opacity: (1 - this._easeInCubic(amount)) * 0.96, scale: 1 - amount * 0.11, walking: false };
     }
 
-    return { visible: false, progress: 1, opacity: 0, activity: 0 };
+    return { visible: false, progress: 1, opacity: 0, scale: 1, walking: false };
   }
 
   _easeOutCubic(value) {
-    return 1 - Math.pow(1 - Math.max(0, Math.min(1, value)), 3);
+    return 1 - Math.pow(1 - this._clamp(value, 0, 1), 3);
   }
 
   _easeInCubic(value) {
-    const clamped = Math.max(0, Math.min(1, value));
+    const clamped = this._clamp(value, 0, 1);
     return clamped * clamped * clamped;
   }
 
   _easeInOutCubic(value) {
-    const clamped = Math.max(0, Math.min(1, value));
+    const clamped = this._clamp(value, 0, 1);
+    return clamped < 0.5 ? 4 * clamped * clamped * clamped : 1 - Math.pow(-2 * clamped + 2, 3) / 2;
+  }
+
+  _easeInOutCubicVelocity(value) {
+    const clamped = this._clamp(value, 0, 1);
     return clamped < 0.5
-      ? 4 * clamped * clamped * clamped
-      : 1 - Math.pow(-2 * clamped + 2, 3) / 2;
+      ? 12 * clamped * clamped
+      : 3 * Math.pow(-2 * clamped + 2, 2);
   }
 
   _pointAt(path, t) {
@@ -360,84 +361,262 @@ class SpiderRenderer {
     };
   }
 
-  _mix(a, b, amount) {
+  _pathLength(path) {
+    let total = 0;
+    let previous = this._pointAt(path, 0);
+    // A small deterministic sample is plenty for cadence, and avoids storing
+    // a DOM path simply to calculate its length.
+    for (let index = 1; index <= 18; index++) {
+      const point = this._pointAt(path, index / 18);
+      total += Math.hypot(point.x - previous.x, point.y - previous.y);
+      previous = point;
+    }
+    return total;
+  }
+
+  _getCadence(spider, state) {
+    if (!state.walking) return 0.38;
+    const travelSpeed = (spider.pathLength || this._pathLength(spider.path)) *
+      (state.travelFraction || 0) / Math.max(0.1, state.travelDuration || 1);
+    const scaleStride = Math.max(14, spider.size * 0.14);
+    return this._clamp(
+      (travelSpeed / scaleStride) * (state.gaitFactor || 1),
+      0.42,
+      2.55
+    );
+  }
+
+  _legPose(spider, leg, currentTime, walking, cadence) {
+    const seconds = currentTime / 1000;
+    const cycleClock = walking ? spider.gaitTime : seconds * cadence;
+    const cycle = this._fract(cycleClock + leg.phase + spider.legOffset / (Math.PI * 2));
+    let footOffset = 0;
+    let lift = 0;
+
+    if (walking) {
+      // Stance: the foot moves front-to-back relative to the body (planted
+      // against the screen). Swing: it lifts inward, returns forward, lands.
+      if (cycle < 0.62) {
+        footOffset = leg.stride * (0.5 - cycle / 0.62);
+      } else {
+        const swing = (cycle - 0.62) / 0.38;
+        footOffset = leg.stride * (-0.5 + swing);
+        lift = Math.sin(Math.PI * swing) * leg.lift;
+      }
+    } else {
+      const leading = leg.shoulder.x > 0;
+      const twitch = Math.sin(seconds * (leading ? 1.55 : 0.72) + leg.phase * 4 + spider.legOffset);
+      footOffset = leading ? twitch * 0.72 : twitch * 0.16;
+      lift = leading ? Math.max(0, twitch) * 0.82 : 0;
+    }
+
+    const flex = lift * 0.28;
     return {
-      x: a.x + (b.x - a.x) * amount,
-      y: a.y + (b.y - a.y) * amount
+      shoulder: { ...leg.shoulder },
+      knee: { x: leg.knee.x + footOffset * 0.17, y: leg.knee.y - leg.side * flex * 0.26 },
+      ankle: { x: leg.ankle.x + footOffset * 0.48, y: leg.ankle.y - leg.side * flex * 0.52 },
+      foot: { x: leg.foot.x + footOffset, y: leg.foot.y - leg.side * lift }
     };
   }
 
-  _legPose(leg, phase, activity) {
-    const gait = Math.sin(phase);
-    const lift = Math.max(0, Math.sin(phase + 0.38)) * leg.lift * activity;
-    const tremor = Math.sin(phase * 1.9 + 0.7) * (0.28 + activity * 0.18);
-    const stride = leg.stride * activity;
-
-    return {
-      start: { ...leg.start },
-      knee: {
-        x: leg.knee.x + gait * stride * 0.28,
-        y: leg.knee.y - lift * 0.26 + tremor
-      },
-      ankle: {
-        x: leg.ankle.x - gait * stride * 0.43,
-        y: leg.ankle.y + lift * 0.34 - tremor * 0.6
-      },
-      tip: {
-        x: leg.tip.x + gait * stride * 0.7,
-        y: leg.tip.y - lift + tremor * 0.45
-      }
-    };
+  _traceLeg(ctx, pose) {
+    ctx.beginPath();
+    ctx.moveTo(pose.shoulder.x, pose.shoulder.y);
+    ctx.quadraticCurveTo(this._lerp(pose.shoulder.x, pose.knee.x, 0.56), this._lerp(pose.shoulder.y, pose.knee.y, 0.56), pose.knee.x, pose.knee.y);
+    ctx.quadraticCurveTo(this._lerp(pose.knee.x, pose.ankle.x, 0.52), this._lerp(pose.knee.y, pose.ankle.y, 0.52), pose.ankle.x, pose.ankle.y);
+    ctx.quadraticCurveTo(this._lerp(pose.ankle.x, pose.foot.x, 0.55), this._lerp(pose.ankle.y, pose.foot.y, 0.55), pose.foot.x, pose.foot.y);
   }
 
-  _legPathD(pose) {
-    const c1 = this._mix(pose.start, pose.knee, 0.38);
-    const c2 = this._mix(pose.start, pose.knee, 0.82);
-    const c3 = this._mix(pose.knee, pose.ankle, 0.35);
-    const c4 = this._mix(pose.knee, pose.ankle, 0.79);
-    const c5 = this._mix(pose.ankle, pose.tip, 0.38);
-    const c6 = this._mix(pose.ankle, pose.tip, 0.84);
-    const point = value => value.x.toFixed(1) + ' ' + value.y.toFixed(1);
+  _drawLeg(ctx, pose, leg, specimen) {
+    ctx.save();
+    ctx.translate(1.25, 1.85);
+    this._traceLeg(ctx, pose);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.58)';
+    ctx.lineWidth = 5.3 * leg.width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    ctx.restore();
 
-    return 'M ' + point(pose.start) +
-      ' C ' + point(c1) + ' ' + point(c2) + ' ' + point(pose.knee) +
-      ' C ' + point(c3) + ' ' + point(c4) + ' ' + point(pose.ankle) +
-      ' C ' + point(c5) + ' ' + point(c6) + ' ' + point(pose.tip);
-  }
+    const gradient = ctx.createLinearGradient(pose.shoulder.x, pose.shoulder.y, pose.foot.x, pose.foot.y);
+    gradient.addColorStop(0, 'rgba(104, 76, 53, 0.98)');
+    gradient.addColorStop(0.24, 'rgba(50, 35, 24, 0.98)');
+    gradient.addColorStop(0.72, 'rgba(19, 14, 11, 0.99)');
+    gradient.addColorStop(1, 'rgba(5, 4, 3, 0.98)');
+    this._traceLeg(ctx, pose);
+    ctx.strokeStyle = gradient;
+    ctx.lineWidth = 3.35 * leg.width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
 
-  _updateLegs(spider, currentTime, activity) {
-    // Updating at 30fps keeps the gait smooth while remaining negligible on
-    // a dense page (at most six spiders × eight SVG paths).
-    if (currentTime - spider.lastLegFrame < 32) return;
-    spider.lastLegFrame = currentTime;
-    const time = currentTime / 1000;
-    const cadence = activity > 0.3 ? spider.stepRate : spider.stepRate * 0.36;
+    this._traceLeg(ctx, pose);
+    ctx.strokeStyle = 'rgba(218, 192, 152, ' + (0.105 * specimen.warmth).toFixed(3) + ')';
+    ctx.lineWidth = 0.64 * leg.width;
+    ctx.stroke();
 
-    spider.legs.forEach((leg, index) => {
-      const pose = this._legPose(leg, time * cadence + leg.phase + spider.legOffset, activity);
-      const d = this._legPathD(pose);
-      const nodes = spider.legNodes[index];
-      if (!nodes) return;
+    [pose.knee, pose.ankle].forEach((joint, jointIndex) => {
+      ctx.beginPath();
+      ctx.arc(joint.x, joint.y, jointIndex ? 1.68 : 2.04, 0, Math.PI * 2);
+      ctx.fillStyle = jointIndex ? '#1b120d' : '#25180f';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(207, 170, 124, 0.14)';
+      ctx.lineWidth = 0.42;
+      ctx.stroke();
+    });
 
-      [nodes.shadow, nodes.main, nodes.highlight].forEach(node => {
-        if (node) node.setAttribute('d', d);
-      });
-      if (nodes.knee) {
-        nodes.knee.setAttribute('cx', pose.knee.x.toFixed(1));
-        nodes.knee.setAttribute('cy', pose.knee.y.toFixed(1));
-      }
-      if (nodes.ankle) {
-        nodes.ankle.setAttribute('cx', pose.ankle.x.toFixed(1));
-        nodes.ankle.setAttribute('cy', pose.ankle.y.toFixed(1));
-      }
+    [0.28, 0.63].forEach((amount, bristleIndex) => {
+      const from = bristleIndex === 0 ? pose.shoulder : pose.knee;
+      const to = bristleIndex === 0 ? pose.knee : pose.ankle;
+      const x = this._lerp(from.x, to.x, amount);
+      const y = this._lerp(from.y, to.y, amount);
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const length = Math.hypot(dx, dy) || 1;
+      const nx = -dy / length * leg.side;
+      const ny = dx / length * leg.side;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + nx * (2.5 + bristleIndex), y + ny * (2.5 + bristleIndex));
+      ctx.strokeStyle = 'rgba(188, 151, 108, 0.16)';
+      ctx.lineWidth = 0.48;
+      ctx.stroke();
     });
   }
 
+  _drawGroundShadow(ctx) {
+    ctx.save();
+    ctx.translate(-1.4, 7.2);
+    ctx.scale(1, 0.35);
+    ctx.beginPath();
+    ctx.ellipse(-4, 0, 39, 17, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.34)';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.72)';
+    ctx.shadowBlur = 7;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  _drawBody(ctx, spider, currentTime, walking, cadence) {
+    const specimen = spider.specimen;
+    const seconds = currentTime / 1000;
+    const breath = Math.sin(seconds * 2.1 + spider.legOffset) * (walking ? 0.25 : 0.48);
+    ctx.save();
+    ctx.translate(0, breath);
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.68)';
+    ctx.shadowBlur = 4.1;
+    ctx.shadowOffsetX = 1.2;
+    ctx.shadowOffsetY = 2.2;
+
+    const abdomen = ctx.createRadialGradient(-21, -8, 2, -12, 0, 29);
+    abdomen.addColorStop(0, 'rgba(139, 103, 69, ' + (0.86 * specimen.warmth).toFixed(3) + ')');
+    abdomen.addColorStop(0.18, 'rgba(82, 56, 37, 0.98)');
+    abdomen.addColorStop(0.56, 'rgba(36, 24, 16, 0.99)');
+    abdomen.addColorStop(1, 'rgba(8, 6, 5, 1)');
+    ctx.beginPath();
+    ctx.ellipse(-13, 0, 26, 17.1, -0.045, 0, Math.PI * 2);
+    ctx.fillStyle = abdomen;
+    ctx.fill();
+    ctx.lineWidth = 0.8;
+    ctx.strokeStyle = 'rgba(201, 163, 118, 0.18)';
+    ctx.stroke();
+
+    const thorax = ctx.createRadialGradient(13, -7, 1, 18, 0, 18);
+    thorax.addColorStop(0, 'rgba(112, 80, 52, 0.9)');
+    thorax.addColorStop(0.31, 'rgba(59, 39, 25, 0.99)');
+    thorax.addColorStop(0.78, 'rgba(18, 12, 9, 1)');
+    thorax.addColorStop(1, 'rgba(4, 3, 2, 1)');
+    ctx.beginPath();
+    ctx.ellipse(17, 0, 15.2, 12.7, 0.04, 0, Math.PI * 2);
+    ctx.fillStyle = thorax;
+    ctx.fill();
+    ctx.lineWidth = 0.7;
+    ctx.strokeStyle = 'rgba(193, 151, 109, 0.15)';
+    ctx.stroke();
+    ctx.restore();
+
+    // Natural low-key markings and hair, not bright widow-style graphics.
+    ctx.save();
+    ctx.strokeStyle = 'rgba(12, 8, 6, 0.58)';
+    ctx.lineWidth = 1.35;
+    ctx.lineCap = 'round';
+    [-17, -9, -1].forEach((x, index) => {
+      ctx.beginPath();
+      ctx.moveTo(x - 4, -6 + index * 0.15);
+      ctx.quadraticCurveTo(x, 0, x - 4, 6 - index * 0.15);
+      ctx.stroke();
+    });
+    specimen.hairs.forEach(hair => {
+      const rx = Math.cos(hair.angle) * 23 * hair.reach;
+      const ry = Math.sin(hair.angle) * 14 * hair.reach;
+      const nx = Math.cos(hair.angle);
+      const ny = Math.sin(hair.angle);
+      ctx.beginPath();
+      ctx.moveTo(-13 + rx, ry);
+      ctx.lineTo(-13 + rx + nx * hair.length, ry + ny * hair.length);
+      ctx.strokeStyle = 'rgba(226, 197, 151, ' + hair.opacity.toFixed(3) + ')';
+      ctx.lineWidth = 0.34;
+      ctx.stroke();
+    });
+    ctx.restore();
+
+    [-3.3, 3.3].forEach((y, index) => {
+      ctx.beginPath();
+      ctx.ellipse(28.2, y, 1.55 - index * 0.08, 1.2, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#090605';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(28.55, y - 0.22, 0.34, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(193, 161, 104, ' + specimen.eyeTint.toFixed(3) + ')';
+      ctx.fill();
+    });
+
+    const probe = walking ? Math.sin(spider.gaitTime * Math.PI * 2) * 1.2 : Math.sin(seconds * 1.6) * 0.45;
+    [-1, 1].forEach(side => {
+      ctx.beginPath();
+      ctx.moveTo(27.5, side * 4.7);
+      ctx.quadraticCurveTo(33.2, side * (8 + probe * 0.22), 38.3, side * (9.2 + probe * 0.48));
+      ctx.strokeStyle = 'rgba(22, 14, 10, 0.96)';
+      ctx.lineWidth = 2.35;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(35.6, side * 8.4);
+      ctx.lineTo(39.6, side * (11 + probe * 0.48));
+      ctx.strokeStyle = 'rgba(164, 126, 84, 0.18)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    });
+  }
+
+  _drawSpider(spider, currentTime, state) {
+    const ctx = spider.ctx;
+    if (!ctx) return;
+    ctx.setTransform(spider.pixelRatio, 0, 0, spider.pixelRatio, 0, 0);
+    ctx.clearRect(0, 0, spider.size, spider.height);
+    ctx.save();
+    ctx.translate(spider.size / 2, spider.height / 2);
+    // Keep a little transparent breathing room around the longest feet and
+    // their shadow, so rotations never clip a leg at the canvas edge.
+    ctx.scale(spider.size / 140, spider.size / 140);
+    this._drawGroundShadow(ctx);
+    const cadence = Number.isFinite(spider.cadence)
+      ? spider.cadence
+      : this._getCadence(spider, state);
+    const poses = spider.legs.map(leg => this._legPose(spider, leg, currentTime, Boolean(state.walking), cadence));
+    poses.forEach((pose, index) => this._drawLeg(ctx, pose, spider.legs[index], spider.specimen));
+    this._drawBody(ctx, spider, currentTime, Boolean(state.walking), cadence);
+    ctx.restore();
+  }
+
   update(delta, currentTime) {
-    const now = Number.isFinite(currentTime) ? currentTime : performance.now();
+    // OverlayCanvas already applies the user's animation-speed preference to
+    // delta. A scene-local clock means spider cycles and gait honor it too.
+    const elapsed = this._clamp(Number(delta) || 0, 0, 0.1);
+    this.sceneTime += elapsed * 1000;
+    const now = this.sceneTime;
     for (const spider of this.spiders) {
       if (spider.fleeing || !spider.element) continue;
-
       const state = this._cycleState(spider, now);
       if (!state.visible) {
         spider.element.style.setProperty('opacity', '0', 'important');
@@ -446,19 +625,23 @@ class SpiderRenderer {
 
       const point = this._pointAt(spider.path, state.progress);
       const tangent = this._tangentAt(spider.path, state.progress);
-      // The artwork faces right, so its body points along the actual route.
       const angle = Math.atan2(tangent.y, tangent.x) * 180 / Math.PI;
-      const breathing = Math.sin(now * 0.0037 + spider.legOffset) * 0.012;
-      const scrollY = this.reducedMotion ? 0 : this.scrollMotion * 0.07 * spider.scrollWeight;
-      const scrollX = this.reducedMotion ? 0 : this.scrollMotion * 0.012 * Math.sin(spider.legOffset);
-      const scale = state.scale * (1 + breathing);
-
-      spider.element.style.setProperty('opacity', Math.max(0, Math.min(0.98, state.opacity)).toFixed(3), 'important');
+      const scale = state.scale;
+      spider.cadence = this._getCadence(spider, state);
+      if (state.walking) spider.gaitTime += elapsed * spider.cadence;
+      spider.element.style.setProperty('opacity', this._clamp(state.opacity, 0, 0.98).toFixed(3), 'important');
+      // Explicit true-centre pivot fixes the prior size*.545 alignment bug.
       spider.element.style.setProperty('transform', 'translate3d(' +
-        (point.x - spider.size * 0.545 + scrollX).toFixed(2) + 'px,' +
-        (point.y - spider.height * 0.5 + scrollY).toFixed(2) + 'px,0) rotate(' +
+        (point.x - spider.size * 0.5).toFixed(2) + 'px,' +
+        (point.y - spider.height * 0.5).toFixed(2) + 'px,0) rotate(' +
         angle.toFixed(2) + 'deg) scale(' + scale.toFixed(3) + ')', 'important');
-      this._updateLegs(spider, now, state.activity);
+
+      // Six small canvases at 40fps are cheap, and the visibly continuous
+      // gait is worth more than the SVG attribute churn it replaces.
+      if (now - spider.lastDrawFrame >= 25) {
+        spider.lastDrawFrame = now;
+        this._drawSpider(spider, now, state);
+      }
     }
   }
 
@@ -470,10 +653,23 @@ class SpiderRenderer {
       const cy = rect.top + rect.height / 2;
       const dx = x - cx;
       const dy = y - cy;
-
       if (dx * dx + dy * dy <= (radius + rect.width * 0.34) ** 2) {
         spider.fleeing = true;
         spider.element.classList.add('spw-spider-flee');
+        // Keep the flee motion local to the isolated canvas. Web Animations
+        // does not depend on page stylesheets or a site's CSP accepting an
+        // injected <style> tag.
+        if (typeof spider.canvas?.animate === 'function') {
+          spider.canvas.animate([
+            { opacity: 1, transform: 'translate3d(0, 0, 0) scale(1)' },
+            { opacity: 0.88, transform: 'translate3d(16px, -10px, 0) scale(0.93)', offset: 0.58 },
+            { opacity: 0, transform: 'translate3d(42px, -30px, 0) scale(0.66)' }
+          ], {
+            duration: 620,
+            easing: 'cubic-bezier(.22,.78,.3,1)',
+            fill: 'forwards'
+          });
+        }
         const element = spider.element;
         this.spiders.splice(index, 1);
         setTimeout(() => element.remove(), 650);

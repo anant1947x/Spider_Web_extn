@@ -139,7 +139,7 @@
         spiderRenderer
       );
 
-      // Canvas order: atmosphere → webs → duster/sparkles.
+      // Shared loop order: atmosphere → webs → isolated spider updates → duster/sparkles.
       overlay.addRenderer(dustSystem);
       overlay.addRenderer(webRenderer);
       overlay.addRenderer(spiderRenderer);
