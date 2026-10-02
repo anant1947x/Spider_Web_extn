@@ -27,35 +27,11 @@
   let lastDaysSinceVisit = 0;
   let isInitializing = false;
 
-  function parseColor(color) {
-    const match = String(color || '').match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-    if (!match) return null;
-    return { r: Number(match[1]), g: Number(match[2]), b: Number(match[3]) };
-  }
-
-  function detectPageTheme() {
-    const body = document.body;
-    const html = document.documentElement;
-    if (!body) return { isDark: false, luminance: 245 };
-
-    const bodyStyle = window.getComputedStyle(body);
-    const bodyColor = parseColor(bodyStyle.backgroundColor);
-    const htmlColor = parseColor(window.getComputedStyle(html).backgroundColor);
-    const transparentBody = bodyStyle.backgroundColor.includes('0, 0, 0, 0');
-    const color = (!bodyColor || transparentBody) ? htmlColor : bodyColor;
-
-    if (!color) return { isDark: false, luminance: 245 };
-    const luminance = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
-    return { isDark: luminance < 128, luminance, bgColor: color };
-  }
-
   function getAdaptiveColors(settings) {
-    const detected = detectPageTheme();
-    const isDark = settings.theme === 'dark'
-      ? true
-      : settings.theme === 'light'
-        ? false
-        : detected.isDark;
+    // Scene geometry and palette deliberately stay extension-wide. Auto is
+    // a cinematic ivory-on-shadow palette rather than page-color detection,
+    // so returning to another site never swaps the room's visual identity.
+    const isDark = settings.theme !== 'light';
 
     const adaptive = isDark
       ? {
@@ -77,8 +53,8 @@
           webHighlightColor: 'rgba(255, 246, 230, 0.28)'
         };
 
-    // Keep automatic contrast for the shipped/default values, but retain a
-    // deliberate custom color chosen by the user in Advanced Settings.
+    // Preserve a deliberate custom color chosen by the user, while the
+    // shipped defaults inherit the selected fixed scene palette.
     const webColor = String(settings.webColor || '').toLowerCase();
     const particleColor = String(settings.particleColor || '').toLowerCase();
     const defaultWeb = !webColor || ['#e0e0e0', '#c8b89a'].includes(webColor);
@@ -163,7 +139,7 @@
         spiderRenderer
       );
 
-      // Canvas order: atmosphere → webs → duster/sparkles.
+      // Shared loop order: atmosphere → webs → isolated spider updates → duster/sparkles.
       overlay.addRenderer(dustSystem);
       overlay.addRenderer(webRenderer);
       overlay.addRenderer(spiderRenderer);
@@ -221,7 +197,7 @@
     // A later setting change must therefore rebuild the active scene from
     // that result instead of re-checking and accidentally treating the same
     // page view as fresh.
-    if (overlay) {
+    if (overlay?.isActive) {
       initEffects(settings, lastDaysSinceVisit);
     } else {
       refreshScene(false);
@@ -232,16 +208,18 @@
     if (message.type === 'FORCE_CLEAN') {
       if (dusterEngine) dusterEngine.forceClean();
       sendResponse({ success: Boolean(dusterEngine) });
+      return false;
     } else if (message.type === 'SETTINGS_UPDATED') {
       if (message.settings) {
         applyChangedSettings(message.settings);
         sendResponse({ success: true });
+        return false;
       } else {
         refreshScene(false).then(() => sendResponse({ success: true }));
+        return true;
       }
-      return true;
     }
-    return true;
+    return false;
   });
 
   chrome.storage.onChanged.addListener((changes, namespace) => {

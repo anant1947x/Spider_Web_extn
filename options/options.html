@@ -28,7 +28,7 @@
         </div>
         <div>
           <h2>Spider Web & Dust</h2>
-          <span class="version">v1.1.0</span>
+          <span class="version">v1.2.0</span>
         </div>
       </div>
 
@@ -95,7 +95,7 @@
           <div class="setting-row">
             <div class="setting-info">
               <h3>Animation Speed</h3>
-              <p>Speed multiplier for all animations (webs swaying, dust drifting).</p>
+              <p>Speed multiplier for scene motion (web sway, dust drift, and spider gait).</p>
             </div>
             <div class="setting-control">
               <input type="range" id="opt-animation-speed" min="0.5" max="2" step="0.1" value="1" class="slider">
@@ -141,12 +141,23 @@
           <div class="setting-row">
             <div class="setting-info">
               <h3>Crawling Spider</h3>
-              <p>Let a small 3D spider follow the long web strands. It hides when brushing and respects reduced-motion settings.</p>
+              <p>Let realistic articulated spiders move along the long web strands. They hide when brushing and respect reduced-motion settings.</p>
             </div>
             <label class="toggle-switch">
               <input type="checkbox" id="opt-spider-enabled" checked>
               <span class="toggle-slider"></span>
             </label>
+          </div>
+
+          <div class="setting-row" id="spider-count-row">
+            <div class="setting-info">
+              <h3>Spider Count</h3>
+              <p>Auto follows web density. Choose 1–6 to keep the same number on every stale site.</p>
+            </div>
+            <div class="setting-control">
+              <input type="range" id="opt-spider-count" min="0" max="6" step="1" value="0" class="slider" aria-label="Spider count, zero follows web density">
+              <span class="slider-value" id="opt-spider-count-value">Auto</span>
+            </div>
           </div>
 
           <div class="setting-row">
@@ -173,8 +184,8 @@
 
           <div class="setting-row">
             <div class="setting-info">
-              <h3>Website Contrast</h3>
-              <p>Automatically adapt web shadows and dust to the page behind them.</p>
+              <h3>Scene Contrast</h3>
+              <p>Choose a fixed contrast for the abandoned-room scene. Auto uses the cinematic ivory palette everywhere.</p>
             </div>
             <div class="option-group" id="opt-theme">
               <button class="option-btn" data-value="light">☀️ Light</button>

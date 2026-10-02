@@ -26,6 +26,23 @@
   pointer-events: none !important;
 }
 
+/* The page's reset stylesheet must not resize, hide, or make decorative
+   extension artwork interactive. Dynamic geometry still comes from the
+   renderer's inline styles. */
+.spw-web-asset {
+  display: block !important;
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  max-width: none !important;
+  max-height: none !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
 /* ── Clean Button ─────────────────────────────────────── */
 
 #spiderweb-clean-btn,
@@ -173,56 +190,22 @@
 /* ── Crawling Spider ───────────────────────────────────── */
 
 .spw-spider {
-  isolation: isolate;
-  filter: saturate(1.04) contrast(1.12);
-  transition: opacity 180ms ease;
-}
-
-.spw-spider-art {
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.spw-spider-leg {
-  fill: none;
-  stroke: #09090c;
-  stroke-width: 3.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: spw-spider-leg-step var(--spw-leg-rate, 560ms) cubic-bezier(.45, 0, .55, 1) infinite alternate;
-}
-
-.spw-leg-2,
-.spw-leg-4,
-.spw-leg-6,
-.spw-leg-8 {
-  animation-delay: -280ms;
-}
-
-.spw-leg-3,
-.spw-leg-7 {
-  animation-delay: -140ms;
-}
-
-.spw-spider-flee {
-  opacity: 0 !important;
-  transform: translate3d(0, -36px, 0) scale(0.7) !important;
-}
-
-@keyframes spw-spider-leg-step {
-  from { transform: rotate(-1.15deg) translateY(-0.45px); }
-  to { transform: rotate(1.15deg) translateY(0.45px); }
+  display: block !important;
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  max-width: none !important;
+  max-height: none !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  box-sizing: content-box !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  isolation: isolate !important;
+  transition: opacity 120ms linear !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spw-spider-leg {
-    animation: none !important;
-  }
-
   #spiderweb-clean-btn,
   #spiderweb-auto-btn,
   #spiderweb-tooltip {

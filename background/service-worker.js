@@ -16,6 +16,9 @@ const DEFAULT_SETTINGS = {
   webColor: '#e0e0e0',
   cleaningMode: 'both',       // manual | auto | both
   spiderEnabled: true,
+  // 0 keeps the scene density-driven; 1–6 explicitly controls the number
+  // of visible crawlers without changing the web layout.
+  spiderCount: 0,
   enabledSites: {},           // { hostname: boolean }
   globalEnabled: true
 };
@@ -35,6 +38,7 @@ function normalizeSettings(storedSettings) {
   const inactivity = Number(stored.inactivityDays);
   const animationSpeed = Number(stored.animationSpeed);
   const soundVolume = Number(stored.soundVolume);
+  const spiderCount = Number(stored.spiderCount);
   const validDensity = ['low', 'medium', 'high', 'extreme'];
   const validDust = ['low', 'medium', 'high'];
   const validTheme = ['light', 'dark', 'auto'];
@@ -62,6 +66,9 @@ function normalizeSettings(storedSettings) {
     particleColor: validColor(stored.particleColor) ? stored.particleColor : DEFAULT_SETTINGS.particleColor,
     webColor: validColor(stored.webColor) ? stored.webColor : DEFAULT_SETTINGS.webColor,
     spiderEnabled: stored.spiderEnabled !== false,
+    spiderCount: Number.isFinite(spiderCount)
+      ? Math.max(0, Math.min(6, Math.round(spiderCount)))
+      : DEFAULT_SETTINGS.spiderCount,
     globalEnabled: stored.globalEnabled !== false,
     enabledSites: { ...enabledSites }
   };
@@ -168,7 +175,15 @@ chrome.tabs.onRemoved.addListener(tabId => {
 // ── Message Handling ──────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  handleMessage(message, sender).then(sendResponse);
+  handleMessage(message, sender)
+    .then(sendResponse)
+    .catch(error => {
+      // A rejected storage/tab call should not leave popup or content-script
+      // callers waiting indefinitely. The extension can safely retry on the
+      // next navigation or settings interaction.
+      console.warn('Spider Web & Dust message failed:', error);
+      sendResponse({ success: false, error: 'Unable to complete request' });
+    });
   return true; // async response
 });
 

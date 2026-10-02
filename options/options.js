@@ -65,6 +65,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     setOptionGroup('opt-dust-intensity', s.dustIntensity);
     setOptionGroup('opt-theme', s.theme);
     document.getElementById('opt-spider-enabled').checked = s.spiderEnabled !== false;
+    const spiderCountSlider = document.getElementById('opt-spider-count');
+    const spiderCount = Number(s.spiderCount) || 0;
+    spiderCountSlider.value = spiderCount;
+    document.getElementById('opt-spider-count-value').textContent = spiderCount === 0 ? 'Auto' : String(spiderCount);
+    updateSliderFill(spiderCountSlider);
+    setSpiderCountEnabled(s.spiderEnabled !== false);
 
     document.getElementById('opt-web-color').value = s.webColor;
     document.getElementById('web-color-label').textContent = s.webColor;
@@ -139,8 +145,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupOptionGroup('opt-cleaning-mode', 'cleaningMode');
 
   document.getElementById('opt-spider-enabled').addEventListener('change', (e) => {
+    setSpiderCountEnabled(e.target.checked);
     save({ spiderEnabled: e.target.checked });
   });
+
+  const spiderCountSlider = document.getElementById('opt-spider-count');
+  spiderCountSlider.addEventListener('input', () => {
+    const count = Number(spiderCountSlider.value) || 0;
+    document.getElementById('opt-spider-count-value').textContent = count === 0 ? 'Auto' : String(count);
+    updateSliderFill(spiderCountSlider);
+  });
+  spiderCountSlider.addEventListener('change', () => {
+    // Saving only after a completed adjustment prevents needless scene
+    // rebuilds while the handle is being dragged.
+    save({ spiderCount: parseInt(spiderCountSlider.value, 10) || 0 });
+  });
+
+  function setSpiderCountEnabled(enabled) {
+    const slider = document.getElementById('opt-spider-count');
+    const row = document.getElementById('spider-count-row');
+    slider.disabled = !enabled;
+    row.style.opacity = enabled ? '1' : '0.42';
+    row.setAttribute('aria-disabled', String(!enabled));
+  }
 
   function setupOptionGroup(groupId, settingKey) {
     const btns = document.querySelectorAll(`#${groupId} .option-btn`);

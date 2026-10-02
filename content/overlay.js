@@ -17,8 +17,11 @@ class OverlayCanvas {
     this.speedMultiplier = 1;
     this.lastTime = 0;
     this.isDocumentHidden = false;
+    this.scrollImpulse = 0;
     this._resizeHandler = null;
     this._visibilityHandler = null;
+    this._scrollHandler = null;
+    this._lastScrollY = 0;
   }
 
   init() {
@@ -35,7 +38,10 @@ class OverlayCanvas {
       'z-index:2147483646',
       'pointer-events:none',
       'overflow:hidden',
-      'contain:layout style paint'
+      'contain:layout style paint',
+      'isolation:isolate',
+      'user-select:none',
+      '-webkit-user-select:none'
     ].join(';');
 
     this.canvas = document.createElement('canvas');
@@ -58,8 +64,20 @@ class OverlayCanvas {
       this.isDocumentHidden = document.hidden;
       this.lastTime = performance.now();
     };
+    this._lastScrollY = window.scrollY || window.pageYOffset || 0;
+    this._scrollHandler = () => {
+      const nextY = window.scrollY || window.pageYOffset || 0;
+      const distance = nextY - this._lastScrollY;
+      this._lastScrollY = nextY;
+      if (!Number.isFinite(distance) || Math.abs(distance) < 0.25) return;
+
+      // The overlay remains fixed, but a short-lived impulse lets individual
+      // strands flex as if the room stirred when the viewer moves through it.
+      this.scrollImpulse = Math.max(-18, Math.min(18, this.scrollImpulse - distance * 0.11));
+    };
 
     window.addEventListener('resize', this._resizeHandler, { passive: true });
+    window.addEventListener('scroll', this._scrollHandler, { passive: true });
     document.addEventListener('visibilitychange', this._visibilityHandler);
     this.resize();
     this.isActive = true;
@@ -104,10 +122,12 @@ class OverlayCanvas {
 
       if (!this.isDocumentHidden) {
         const delta = rawDelta * this.speedMultiplier;
+        this.scrollImpulse *= Math.exp(-delta * 8);
         this.ctx.clearRect(0, 0, this.width, this.height);
 
         for (const renderer of this.renderers) {
-          if (renderer.update) renderer.update(delta, currentTime);
+          if (renderer.setScrollMotion) renderer.setScrollMotion(this.scrollImpulse);
+          if (renderer.update) renderer.update(delta, currentTime, this.scrollImpulse);
           if (renderer.render) renderer.render(this.ctx, this.width, this.height);
         }
       }
@@ -144,6 +164,7 @@ class OverlayCanvas {
   destroy() {
     this.stopRenderLoop();
     if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler);
+    if (this._scrollHandler) window.removeEventListener('scroll', this._scrollHandler);
     if (this._visibilityHandler) document.removeEventListener('visibilitychange', this._visibilityHandler);
     if (this.container?.parentNode) this.container.parentNode.removeChild(this.container);
 
@@ -152,6 +173,7 @@ class OverlayCanvas {
     this.container = null;
     this.renderers = [];
     this.isActive = false;
+    this.scrollImpulse = 0;
   }
 }
 
